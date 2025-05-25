@@ -1,6 +1,6 @@
 # Formalization of Computability Theory
 
-An ongoing effort to formalize computability theory via partial recursive sets, rather than functions.
+An ongoing effort to formalize computability theory notions involving subsets of ℕ.
 
 - Primitive recursive (PR), computable (Comp), and partial recursive (computably enumerable) (CE) sets are all defined
 -  PR -> Comp -> CE
@@ -10,8 +10,10 @@ An ongoing effort to formalize computability theory via partial recursive sets, 
 - CE is closed under set difference by Comp sets
 - CE is closed under finite symmetric difference
 
+- immunity and cohesiveness are defined
 
 To do:
-- symmetric difference lemmas for PR and Comp
-- classical definitions involving set operations: immunity, cohesiveness, major subsets
+- lemmata for immunity and cohesiveness
+- every c.e. set contains a computable set
+- major subsets
 - the relativized arithmetic hierarchy

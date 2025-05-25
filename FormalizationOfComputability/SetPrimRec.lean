@@ -27,7 +27,7 @@ def set_computable (X : Set ℕ) : Prop :=
 abbrev Delta01 := set_computable
 
 def set_partrec (X : Set ℕ) : Prop :=
-∃ (f: ℕ →. Option Unit), Partrec f ∧ f.Dom = X
+∃ (f: ℕ →. Unit), Partrec f ∧ f.Dom = X
 abbrev Sigma01 := set_partrec
 
 -- Implications
@@ -44,11 +44,11 @@ abbrev set_primrec_is_delta01 := set_primrec_is_computable
 theorem set_computable_is_partrec (X : Set ℕ) (h : set_computable X) :
 set_partrec X := by
   obtain ⟨f, ⟨hComp, hSpec⟩⟩ := h
-  let f' : ℕ →. Option Unit := λ x => bif f x then Part.some () else Part.none
+  let f' : ℕ →. Unit := λ x => bif f x then Part.some () else Part.none
   use f'
   constructor
   · apply Partrec.cond hComp
-    exact Partrec.const' (Part.some true)
+    exact Partrec.const' (Part.some ())
     exact Partrec.const' (Part.none)
   · ext x
     simp [f']
@@ -189,7 +189,7 @@ theorem set_partrec_union (X Y : Set ℕ) (hX : set_partrec X) (hY : set_partrec
 set_partrec (X ∪ Y) := by
 obtain ⟨f, ⟨fPrim, fSpec⟩⟩ := hX
 obtain ⟨g, ⟨gPrim, gSpec⟩⟩ := hY
-have hfg : ∃ (h : ℕ →. Option Unit), -- merge the witnessing functions for Z and {a}
+have hfg : ∃ (h : ℕ →. Unit), -- merge the witnessing functions for Z and {a}
   Partrec h ∧ ∀ (a : ℕ), (∀ x ∈ h a, x ∈ f a ∨ x ∈ g a) ∧
   ((h a).Dom ↔ (f a).Dom ∨ (g a).Dom) := by
   apply Partrec.merge' fPrim gPrim
@@ -282,6 +282,14 @@ constructor
 · intro x
   simp [fSpec, f']
 
+theorem set_primrec_compl_iff (X : Set ℕ) : set_primrec X ↔ set_primrec Xᶜ := by
+constructor
+· exact set_primrec_compl X
+· intro h
+  rw [← compl_compl X]
+  apply set_primrec_compl Xᶜ
+  exact h
+
 theorem set_computable_compl (X : Set ℕ) (hX : set_computable X) : set_computable Xᶜ := by
 obtain ⟨f, ⟨fComp, fSpec⟩⟩ := hX
 let f' := fun x => !(f x)
@@ -293,6 +301,15 @@ constructor
 · intro x
   simp [fSpec, f']
 abbrev set_delta01_compl := set_computable_compl
+
+theorem set_computable_compl_iff (X : Set ℕ) : set_computable X ↔ set_computable Xᶜ := by
+constructor
+· exact set_computable_compl X
+· intro h
+  rw [← compl_compl X]
+  apply set_computable_compl Xᶜ
+  exact h
+abbrev set_delta01_compl_iff := set_computable_compl_iff
 
 -- Set difference
 theorem set_primrec_sdiff (X Y : Set ℕ) (hX : set_primrec X) (hY : set_primrec Y) :
@@ -320,7 +337,8 @@ apply set_partrec_inter
 abbrev set_sigma01_sdiff_delta01 := set_partrec_sdiff_computable
 
 -- Finite sets
-theorem finite_set_primrec (X : Finset ℕ) : set_primrec X := by
+theorem finite_set_primrec (X : Set ℕ) (h: Finite X) : set_primrec X := by
+  obtain ⟨X, rfl⟩ := Set.Finite.exists_finset_coe h
   induction' X using Finset.induction_on' with a S ha hS haS hSPrim
   · simp
     exact empty_set_primrec
@@ -328,38 +346,42 @@ theorem finite_set_primrec (X : Finset ℕ) : set_primrec X := by
     rw [Set.insert_eq]
     apply set_primrec_union
     · exact singleton_primrec a
-    · exact hSPrim
+    · apply hSPrim
+      exact Finite.of_fintype ↑↑S
 
-theorem finite_set_computable (X : Finset ℕ) : set_computable X := by
+theorem finite_set_computable (X : Set ℕ) (h: Finite X) : set_computable X := by
 apply set_primrec_is_computable
 apply finite_set_primrec
-abbrev finite_set_delta01 (X : Finset ℕ) := finite_set_computable X
+exact h
+abbrev finite_set_delta01 := finite_set_computable
 
-theorem finite_set_partrec (X : Finset ℕ) : set_partrec X := by
+theorem finite_set_partrec (X : Set ℕ) (h: Finite X) : set_partrec X := by
 apply set_computable_is_partrec
 apply finite_set_computable
-abbrev finite_set_sigma01 (X : Finset ℕ) := finite_set_partrec X
+exact h
+abbrev finite_set_sigma01 := finite_set_partrec
 
 -- Cofinite sets
 theorem cofinite_set_primrec (X : Set ℕ) (hX : Xᶜ.Finite): set_primrec X := by
+obtain ⟨Xc, hXc⟩ := Set.Finite.exists_finset_coe hX
 rw [← compl_compl X]
 apply set_primrec_compl
 let Yc : Finset ℕ := hX.toFinset
-have hYc : ↑Yc = Xᶜ := Set.Finite.coe_toFinset hX
-rw [← hYc]
+rw [← hXc]
 apply finite_set_primrec
+exact Finite.of_fintype ↑↑Xc
 
 theorem cofinite_set_computable (X : Set ℕ) (hX : Xᶜ.Finite): set_computable X := by
 apply set_primrec_is_computable
 apply cofinite_set_primrec
 exact hX
-abbrev cofinite_set_delta01 (X : Set ℕ) (hX : Xᶜ.Finite) := cofinite_set_computable X hX
+abbrev cofinite_set_delta01 := cofinite_set_computable
 
 theorem cofinite_set_partrec (X : Set ℕ) (hX : Xᶜ.Finite): set_partrec X := by
 apply set_computable_is_partrec
 apply cofinite_set_computable
 exact hX
-abbrev cofinite_set_sigma01 (X : Set ℕ) (hX : Xᶜ.Finite) := cofinite_set_partrec X hX
+abbrev cofinite_set_sigma01 := cofinite_set_partrec
 
 infixl:100 " ∆ " => symmDiff
 
@@ -414,5 +436,7 @@ apply set_partrec_sdiff_computable
 · apply set_partrec_union
   · exact hX
   · apply finite_set_partrec FC
+    exact Finite.of_fintype ↑↑FC
 · apply finite_set_computable FD
+  exact Finite.of_fintype ↑↑FD
 abbrev set_sigma01_symmdiff_finite := set_partrec_symmdiff_finite
