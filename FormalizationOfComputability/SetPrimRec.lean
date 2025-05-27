@@ -21,6 +21,7 @@ This allows for set operations such as union, intersection, set difference, and 
 - Primitive recursive and computable sets are closed under complement and set difference
 - Partially recursive sets are closed under set difference by Comp sets
 - Partially recursive sets are closed under finite symmetric difference
+- The finite symmetric difference relation is defined, and is transitive and commutative
 
 ## Notation
 - '∆' is used for symmetric difference (see symmDiff)
