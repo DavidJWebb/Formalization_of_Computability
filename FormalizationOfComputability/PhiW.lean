@@ -11,19 +11,21 @@ set_option warningAsError false
 
 namespace Nat.Partrec
 
-def Phi_stage (e s n : ℕ) : Option ℕ :=
-    Code.evaln s (Code.ofNatCode e) n
+/- ϕₑ,ₛ(_) -/
+def Phi_stage (e s : ℕ) : ℕ → Option ℕ :=
+    Code.evaln s (Code.ofNatCode e)
 
-def Phi (e n : ℕ) : Part ℕ :=
-    (Code.ofNatCode e).eval n
+/- ϕₑ(_) -/
+def Phi (e : ℕ) : ℕ →. ℕ :=
+    (Code.ofNatCode e).eval
 
+/- Wₑ,ₛ = {n | n ≤ s ∧ ϕₑ,ₛ(n)↓}, with useful computational content:
+membership is decidable, for instance-/
 def Weg_stage (e s : ℕ) : Finset ℕ :=
     (Finset.range (s + 1)).filter (λ n => (Phi_stage e s n).isSome)
-/- This is exactly Wₑ,ₛ = {n | n ≤ s ∧ ϕₑ,ₛ(n)↓}, with
-useful computational content : membership is decidable, for instance-/
 
+/- Wₑ = {n | n ≤ s ∧ ϕₑ(n)↓} -/
 def Weg (e : ℕ) : Set ℕ := {n | (Phi e n).Dom}
-/- This is exactly Wₑ = {n | n ≤ s ∧ ϕₑ(n)↓} -/
 
 
 -- Views Of Mount Σ01 :
