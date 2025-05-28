@@ -10,10 +10,10 @@ An ongoing effort to formalize computability theory notions involving subsets of
 - CE is closed under set difference by Comp sets
 - CE is closed under finite symmetric difference
 
-- immunity and cohesiveness are defined
+- immunity and cohesiveness are defined, with various lemmata
 
 To do:
-- lemmata for immunity and cohesiveness
+- develop Wₑ,ₛ and ϕₑ,ₛ machinery
 - every c.e. set contains a computable set
 - major subsets
 - the relativized arithmetic hierarchy
