@@ -1,6 +1,5 @@
-/- mostly done, missing the main lemma that every infinite Sigma01 set has
-an infinite Delta01 subset. That involves the details of the enumeration,
-and so will need some heavier machinery. -/
+/- Still missing the main lemma that every infinite Sigma01 set has
+an infinite Delta01 subset. That will appear in PhiW.lean -/
 
 /-
 Copyright (c) 2025 David J. Webb. All rights reserved.
@@ -145,27 +144,6 @@ have hgPart : Nat.Partrec g := by
 rw [Nat.Partrec.Code.exists_code] at hgPart
 obtain ⟨e, he⟩ := hgPart
 sorry
-
--- Views Of Mount Σ01 :
--- partial recursive f
--- its domain X
--- the range of a computable g : ℕ → ℕ
--- the code e for f
--- the (possibly finite) sequence of nth outputs {fn}
--- the infinite partial recursive sequence of nth outputs {fn}
-
-
--- lemma : an increasing partial recursive sequence
-
-
--- eval x c = 1 ↔ ∃ s=(μ t) evaln x c t = 1 (essentially, s = the stage ϕₑ(x) halts)
--- s(n) = min(n, the halt time of n) is a partial function
-
--- Say X = Wₑ, i.e. e is the index of a partial recursive function f with domain X
---
---
--- Then Y = g.Dom ⊆ X
--- Show that as X is infinite, so is Y
 
 def Immune (X : Set ℕ) : Prop := ∀ (Y : Set ℕ), (Delta01 Y ∧ Y.Infinite) → ¬ (Y ⊆ X)
 --equivalently, this can be defined with Sigma01 sets - see below
