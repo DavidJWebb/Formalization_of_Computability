@@ -51,6 +51,7 @@ abbrev set_primrec_is_delta01 := set_primrec_is_computable
 theorem set_computable_is_partrec (X : Set ℕ) (h : set_computable X) :
     set_partrec X := by
   obtain ⟨f, ⟨hComp, hSpec⟩⟩ := h
+  apply Computable.partrec at hComp
   let f' : ℕ →. Unit := fun x => bif f x then Part.some () else Part.none
   use f'
   constructor
