@@ -1,5 +1,5 @@
 /- Still missing the main lemma that every infinite Sigma01 set has
-an infinite Delta01 subset. That will appear in PhiW.lean -/
+an infinite Delta01 subset. That will appear in Phi.lean -/
 
 /-
 Copyright (c) 2025 David J. Webb. All rights reserved.
