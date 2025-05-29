@@ -13,9 +13,11 @@ An ongoing effort to formalize computability theory notions involving subsets of
 - Use functions ϕ_e and enumerable set W_e are defined from Halting.lean
 - Basic lemmata about them are proven
 
-- immunity and cohesiveness are defined, with various lemmata
+- Immunity and cohesiveness are defined, with various lemmata
+(some of whose proofs rely on the next unproven fact)
 
 To do:
+- characterize c.e. sets as sequences in order of halting time
 - every c.e. set contains a computable set
 - major subsets
 - the relativized arithmetic hierarchy
