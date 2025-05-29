@@ -10,10 +10,12 @@ An ongoing effort to formalize computability theory notions involving subsets of
 - CE is closed under set difference by Comp sets
 - CE is closed under finite symmetric difference
 
+- Use functions ϕ_e and enumerable set W_e are defined from Halting.lean
+- Basic lemmata about them are proven
+
 - immunity and cohesiveness are defined, with various lemmata
 
 To do:
-- develop Wₑ,ₛ and ϕₑ,ₛ machinery
 - every c.e. set contains a computable set
 - major subsets
 - the relativized arithmetic hierarchy
