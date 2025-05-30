@@ -4,15 +4,49 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
 import FormalizationOfComputability.SetPrimRec
+import FormalizationOfComputability.CodeDecode
 import Mathlib.Order.Filter.Cofinite
 import Mathlib.Tactic.Linarith
 
 set_option warningAsError false
 
+/-
+# ϕₑ and Wₑ
+This file contains the definitions most commonly used by working computability theorists :
+the use functions ϕₑ and the enumerable sets Wₑ. The former is present in Partrec.code as eval,
+so this can be thought of as a wrapper for that file.
+-/
+
 namespace Nat.Partrec
 
-noncomputable def μ (P : ℕ → Prop) [DecidablePred P] (h : ∃ n, P n) : ℕ :=
-  Nat.find h
+lemma encode_inverse_eval (c : Code) :
+    c = (Code.ofNatCode (Code.encodeCode c))  := by
+  induction c with
+  | zero => simp [Code.encodeCode, Code.ofNatCode, Code.eval]
+  | succ => simp [Code.encodeCode, Code.ofNatCode, Code.eval]
+  | left => simp [Code.encodeCode, Code.ofNatCode, Code.eval]
+  | right => simp [Code.encodeCode, Code.ofNatCode, Code.eval]
+  | pair cf cg ihf ihg =>
+      simp [Code.encodeCode, Code.ofNatCode, Code.eval]
+      constructor
+      · exact ihf
+      · exact ihg
+  | comp cf cg ihf ihg =>
+      simp [Code.encodeCode, Code.ofNatCode, Code.eval]
+      constructor
+      · exact ihf
+      · exact ihg
+  | prec cf cg ihf ihg =>
+      simp [Code.encodeCode, Code.ofNatCode, Code.eval]
+      constructor
+      · exact ihf
+      · exact ihg
+  | rfind' cf ihf =>
+      simp [Code.encodeCode, Code.ofNatCode, Code.eval]
+      exact ihf
+
+/- noncomputable def μ (P : ℕ → Prop) [DecidablePred P] (h : ∃ n, P n) : ℕ :=
+Nat.find h -/
 
 /- ϕₑ,ₛ(_) -/
 def Phi_stage (e s : ℕ) : ℕ → Option ℕ :=
@@ -35,6 +69,76 @@ def W_stage (e s : ℕ) : Finset ℕ :=
 /- Wₑ = {n | n ≤ s ∧ ϕₑ(n)↓} -/
 def W (e : ℕ) : Set ℕ := {n | (Phi e n).Dom}
 
+lemma phi_stage_primrec (e s : ℕ) : Primrec (Phi_stage e s) := by
+  have h : Primrec (fun ((s, e), n) => Code.evaln s e n) := by
+    exact Nat.Partrec.Code.primrec_evaln
+  unfold Phi_stage
+  refine Primrec.encode_iff.mp ?_
+  refine Primrec'.prim_iff₁.mp ?_
+
+lemma phi_partrec (e : ℕ) : Partrec (Phi e) := by
+  unfold Phi
+  rw [Nat.Partrec.Code.exists_code]
+  use Code.ofNatCode e
+
+lemma W_stage_primrec (e s : ℕ) : set_primrec (W_stage e s) := by
+  sorry
+
+/- The Wₑ are Σ01 -/
+lemma W_Sigma01 (e : ℕ) : Sigma01 (W e) := by
+  unfold Sigma01 W set_partrec
+  have h : Partrec (Phi e) := by exact phi_partrec e
+  let Phi_unit : ℕ →. Unit := -- the definition of Sigma01 wants ℕ →. Unit, not →. ℕ
+    λ n => (Phi e n).map (λ _ => ())
+  use Phi_unit
+  have h1 : _root_.Partrec Phi_unit := by
+    unfold Phi_unit
+    refine Partrec.map ?_ ?_
+    constructor
+    · exact h
+    · refine Partrec.nat_iff.mp ?_
+      apply Computable.partrec
+      exact Computable.id
+    · refine Primrec₂.to_comp ?_
+      exact Primrec₂.const ()
+  constructor
+  · exact h1
+  · unfold Phi_unit
+    rfl
+
+/- Sigma01 sets can be written as Wₑ -/
+lemma Sigma01_is_W (X : Set ℕ) : Sigma01 X → ∃ (e : ℕ), X = W e := by
+· intro h
+  unfold Sigma01 set_partrec at h
+  obtain ⟨f, ⟨h1, h2⟩⟩ := h
+  let f_nat : ℕ →. Nat :=
+  λ n => (f n).map (λ _ => 1)
+  have h3 : Partrec f_nat := by
+    refine Partrec.nat_iff.mp ?_
+    refine Partrec.map h1 ?_
+    refine Primrec₂.to_comp ?_
+    exact Primrec₂.const 1
+  have h4 : f.Dom = f_nat.Dom := by
+    rfl
+  rw [Nat.Partrec.Code.exists_code] at h3
+  obtain ⟨c, h3⟩ := h3
+  rw [← h2, h4]
+  use c.encodeCode
+  unfold W
+  unfold Phi
+  rw [← encode_inverse_eval c]
+  rw [← h3]
+  rfl
+
+/- The Σ01 sets are exactly the Wₑ -/
+lemma Sigma01_iff_W (X : Set ℕ) : Sigma01 X ↔ ∃ (e : ℕ), X = W e := by
+  constructor
+  · exact Sigma01_is_W X
+  · intro h
+    obtain ⟨e, h⟩ := h
+    rw [h]
+    exact W_Sigma01 e
+
 /- ϕₑ(n)↓ ↔ ∃ (s : ℕ), ϕₑ,ₛ(n)↓ -/
 theorem phi_halts_runtime_exists (e n : ℕ) : Phi_halts e n ↔ ∃ (s : ℕ), Phi_stage_halts e s n := by
   unfold Phi_stage_halts Phi_halts Phi_stage Phi
@@ -51,10 +155,11 @@ theorem phi_halts_mono (e s t n : ℕ) (h : s ≤ t) (h1 : Phi_stage_halts e s n
   use x
   apply Nat.Partrec.Code.evaln_mono h hx
 
+/- the least time that it takes for ϕ to halt (if it does)-/
 def runtime (e n : ℕ) : Part ℕ :=
   rfindOpt (fun s => if (Phi_stage e s n).isSome then some s else Option.none)
 
-theorem phi_halts_runtime (e n s t : ℕ) (h1 : s ∈ (runtime e n)) :
+theorem runtime_is_min (e n s t : ℕ) (h1 : s ∈ (runtime e n)) :
     Phi_stage_halts e s n ∧ (t < s → Phi_stage_diverges e t n) := by
   simp [runtime, rfindOpt] at h1
   obtain ⟨⟨hs, hs2⟩, hs⟩ := h1
@@ -75,6 +180,7 @@ theorem halt_implies_runtime_gt_input (e s x n : ℕ) (h : x ∈ (Phi_stage e s 
   apply Code.evaln_bound
   exact h
 
+/- ϕₑ,ₛ(x)↓ ↔ x ∈ Wₑ,ₛ -/
 lemma W_stage_phi_stage (e s n : ℕ) : n ∈ W_stage e s ↔ Phi_stage_halts e s n := by
 unfold W_stage Phi_stage_halts
 simp
@@ -91,10 +197,12 @@ constructor
     exact h
   · use x
 
+/- ϕₑ(x)↓ ↔ x ∈ Wₑ -/
 lemma W_phi (e n : ℕ) : n ∈ W e ↔ Phi_halts e n := by
 unfold W Phi_halts
 exact Part.dom_iff_mem
 
+/- Wₑ,ₛ ⊆ Wₑ  -/
 theorem W_stage_subset_W (e s : ℕ) : (W_stage e s).toSet ⊆ W e := by
   intro x h
   simp [W_stage] at h
@@ -124,21 +232,11 @@ constructor
   apply W_stage_subset_W
   exact h
 
+/- Wₑ = ⋃ₛ Wₑ,ₛ -/
 theorem W_eq_union_W_stage (e : ℕ) : W e = ⋃ (s : ℕ), W_stage e s := by
 ext x
-constructor
-· intro h
-  rw [W_phi, phi_halts_use_exists] at h
-  obtain ⟨s, h⟩ := h
-  simp
-  use s
-  rw [W_stage_phi_stage]
-  exact h
-· simp
-  intro s h
-  apply W_stage_subset_W
-  exact h
-
+rw [W_mem_iff_W_stage]
+simp
 
 /- Weg e s \ Weg e (s-1)-/
 def W_dr (e s : ℕ) : List ℕ :=
@@ -147,6 +245,16 @@ def W_dr (e s : ℕ) : List ℕ :=
                          (s = 0 ∨ (Phi_stage e (s - 1) n).isNone))
 
 
+def W_dr2 (e s : ℕ) : Set ℕ :=
+  if s = 0 then W_stage e s
+  else (W_stage e s) \ (W_stage e (s-1))
+
+def W_enum (e : ℕ) : ℕ → List ℕ
+| 0     => W_dr e 0
+| s + 1 =>
+  let prev := W_enum e s
+  let delta := W_dr e (s + 1)
+  prev ++ delta.filter (λ n => n ∉ prev)
 
 
 
@@ -171,6 +279,19 @@ partial def enumerated_code (e k n : ℕ) : Code := do
 
 def W_enum (e : ℕ) : ℕ →. ℕ :=
   λ k => Code.rfind' (enumerated_code e k) 0
+
+
+/- lemma sigma01_has_delta01_subset (X : Set ℕ) (hX : Sigma01 X) (hInf : X.Infinite):
+∃ (Y : Set ℕ), Delta01 Y ∧ Y.Infinite ∧ Y ⊆ X ∧ (X\Y).Infinite := by
+obtain ⟨f, ⟨hfPart, hfDom⟩⟩ := hX
+let g := f.map (fun _ => 1)
+have hfg : ∀ (x:ℕ), (f x) = some () ↔ (g x) = 1 := by
+  sorry
+have hgPart : Nat.Partrec g := by
+  sorry
+rw [Nat.Partrec.Code.exists_code] at hgPart
+obtain ⟨e, he⟩ := hgPart
+sorry -/
 
 
 
