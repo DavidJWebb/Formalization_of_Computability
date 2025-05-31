@@ -11,13 +11,14 @@ An ongoing effort to formalize computability theory notions involving subsets of
 - CE is closed under finite symmetric difference
 
 - Use functions ϕ_e and enumerable set W_e are defined from Halting.lean
-- Basic lemmata about them are proven
+- (New) The runtime of a computatation ϕ_e is defined
+- Basic lemmata about the above are proven
+- (New) W_enum_prefix e s is the list of elements for which ϕ_{e,s} halts, *in the order that they halted*
 
 - Immunity and cohesiveness are defined, with various lemmata
 (some of whose proofs rely on the next unproven fact)
 
 To do:
-- characterize c.e. sets as sequences in order of halting time
 - every c.e. set contains a computable set
 - major subsets
 - the relativized arithmetic hierarchy
