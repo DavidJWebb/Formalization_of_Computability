@@ -13,8 +13,7 @@ set_option warningAsError false
 /-
 # ϕₑ and Wₑ
 This file contains the definitions most commonly used by working computability theorists :
-the use functions ϕₑ and the enumerable sets Wₑ. The former is present in Partrec.code as eval,
-so much of this file can be thought of as a wrapper for that one.
+the use functions ϕₑ and the enumerable sets Wₑ.
 -/
 
 namespace Nat.Partrec.Code
@@ -22,12 +21,10 @@ namespace Nat.Partrec.Code
 /- noncomputable def μ (P : ℕ → Prop) [DecidablePred P] (h : ∃ n, P n) : ℕ :=
 Nat.find h -/
 
-/- ϕₑ,ₛ(_). Following Soare, we require e, n, and x (the output) to be less than s -/
+/- ϕₑ,ₛ(_). Following Soare, we require e, n, and y (the output) to be less than s -/
 
-def Phi_stage (e s n : ℕ) : Option ℕ := evaln s (ofNatCode e) n
-
-def Phi_stage2 (e s n : ℕ) : Option ℕ :=
-    if (e < s) ∧ (n < s) ∧ (∀ (y : ℕ), y ∈ evaln s (ofNatCode e) n → y < s)
+def Phi_stage (e s n : ℕ) : Option ℕ :=
+    if (e < s) ∧ (∀ (y : ℕ), y ∈ evaln s (ofNatCode e) n → y < s)
     then evaln s (ofNatCode e) n
     else Option.none
 
@@ -45,30 +42,47 @@ def Phi_stage_diverges (e s n : ℕ) : Prop :=
 def Phi_diverges (e n : ℕ) : Prop :=
     ¬ Phi_halts e n
 
+instance (e s n : ℕ): Decidable (Phi_stage_halts e s n) := by
+  unfold Phi_stage_halts Phi_stage
+  simp
+  have h1 : Decidable (e < s ∧ ∀ (y : ℕ), evaln s (ofNatCode e) n = some y → y < s) := by
+    apply instDecidableAnd
+  have h2 : Decidable (∃ x, evaln s (ofNatCode e) n = some x) := by
+     match evaln s (ofNatCode e) n with
+    | some x        => exact isTrue ⟨x, rfl⟩
+    | Option.none   => exact isFalse (λ ⟨x, h⟩ => Option.noConfusion h)
+  exact inferInstance
+
 /- Wₑ,ₛ = {n | n ≤ s ∧ ϕₑ,ₛ(n)↓}, i.e. those n for which ϕₑ(x) halts in < s steps -/
-def W_stage (e s : ℕ) : Finset ℕ :=
-    (Finset.range (s+1)).filter (λ n => (Phi_stage e s n).isSome)
-/- Wₑ = {n | n ≤ s ∧ ϕₑ(n)↓} -/
+def W_s (e s : ℕ) : Set ℕ :=
+  (Finset.range s).filter (Phi_stage_halts e s)
+/- Wₑ = {n | ϕₑ(n)↓} -/
 def W (e : ℕ) : Set ℕ := (Phi e).Dom
 
+lemma halt_input_bound (e s n : ℕ) (h : Phi_stage_halts e s n) :
+    n < s := by
+  simp [Phi_stage_halts, Phi_stage] at h
+  obtain ⟨x, hx⟩ := h.right
+  apply Code.evaln_bound
+  exact hx
 
-lemma phi_stage_primrec (e s : ℕ) : Primrec (Phi_stage e s) := by
-  have h : Primrec (fun ((s, e), n) => evaln s e n) := by
-    exact primrec_evaln
-  have h1 := Nat.Partrec.Code.encodeCode_eq
+lemma halt_output_bound (e s y n : ℕ) (h : y ∈ (Phi_stage e s n)) :
+  y < s := by
+  simp [Phi_stage] at h
+  have h2 : evaln s (ofNatCode e) n = some y := by exact h.right
+  apply h.left.right at h2
+  exact h2
 
-  unfold Phi_stage
-  refine Primrec.encode_iff.mp ?_
-/- this isn't conceptually difficult, but there's a type mismatch between ℕ×ℕ and ℕ → ℕ,
-a permutation issue, and the fact that encoding/decoding is primitive recurive-/
+lemma halt_index_bound (e s n : ℕ) (h : Phi_stage_halts e s n) :
+    e < s := by
+  simp [Phi_stage_halts, Phi_stage] at h
+  exact h.left.left
+
 
 lemma phi_partrec (e : ℕ) : Partrec (Phi e) := by
   unfold Phi
   rw [exists_code]
   use ofNatCode e
-
-lemma W_stage_primrec (e s : ℕ) : set_primrec (W_stage e s) := by
-  sorry
 
 /- The Wₑ are Σ01 -/
 lemma W_Sigma01 (e : ℕ) : Sigma01 (W e) := by
@@ -117,18 +131,54 @@ lemma Sigma01_iff_W (X : Set ℕ) : Sigma01 X ↔ ∃ (e : ℕ), X = W e := by
     rw [h]
     exact W_Sigma01 e
 
+/- s < t → ϕₑ,ₛ(n)↓ → ϕₑ,ₜ(n)↓ -/
+theorem phi_halts_mono (e s t n : ℕ) (h : s ≤ t) (h1 : Phi_stage_halts e s n) :
+    Phi_stage_halts e t n := by
+  revert h1
+  simp [Phi_stage_halts, Phi_stage]
+  intro h1 h2 y h3
+  constructor
+  · constructor
+    · exact Nat.lt_of_lt_of_le h1 h
+    · intro z hz
+      have htz : evaln t (ofNatCode e) n = some y := by
+        apply Nat.Partrec.Code.evaln_mono
+        · exact h
+        · exact h3
+      simp [hz] at htz
+      rw [htz]
+      apply h2 at h3
+      exact Nat.lt_of_lt_of_le h3 h
+  · use y
+    apply Nat.Partrec.Code.evaln_mono
+    · exact h
+    · exact h3
+
 /- ϕₑ(n)↓ ↔ ∃ (s : ℕ), ϕₑ,ₛ(n)↓ -/
 theorem phi_halts_runtime_exists (e n : ℕ) : Phi_halts e n ↔ ∃ (s : ℕ), Phi_stage_halts e s n := by
   unfold Phi_stage_halts Phi_halts Phi_stage Phi
   simp [evaln_complete]
-  exact exists_comm
+  constructor
+  · intro ⟨x, ⟨k, h⟩⟩
+    use e+x+k+1
+    constructor
+    · constructor
+      · linarith -- e < e+k+x+1
+      · intro y h1
+        apply (Nat.Partrec.Code.evaln_mono) at h
+        · rw [h1] at h
+          simp at h
+          rw [h]
+          linarith -- x < e+k+x+1
+        · linarith -- k < e+k+x+1
+    use x
+    apply (Nat.Partrec.Code.evaln_mono) at h
+    · exact h
+    · linarith
+  · intro ⟨s,⟨⟨h1,h2⟩,⟨x, h3⟩⟩⟩
+    use x
+    use s
 
-/- s < t → ϕₑ,ₛ(n)↓ → ϕₑ,ₜ(n)↓ -/
-theorem phi_halts_mono (e s t n : ℕ) (h : s ≤ t) (h1 : Phi_stage_halts e s n) :
-    Phi_stage_halts e t n := by
-  obtain ⟨x, hx⟩ := h1
-  use x
-  exact Nat.Partrec.Code.evaln_mono h hx
 
 theorem phi_halts_mono_reverse (e s t n : ℕ) (h : s ≤ t) (h1 : Phi_stage_diverges e t n) :
   Phi_stage_diverges e s n := by
@@ -174,27 +224,15 @@ theorem runtime_is_min (e n s : ℕ) : (s ∈ (runtime e n)) ↔
         exact Option.eq_none_iff_forall_ne_some.mpr hm
     · exact h1
 
-theorem halt_implies_runtime_gt_input (e s x n : ℕ) (h : x ∈ (Phi_stage e s n)): n < s := by
-  unfold Phi_stage at h
-  apply Code.evaln_bound
-  exact h
-
 /- ϕₑ,ₛ(x)↓ ↔ x ∈ Wₑ,ₛ -/
-lemma W_stage_phi_stage (e s n : ℕ) : n ∈ W_stage e s ↔ Phi_stage_halts e s n := by
-unfold W_stage Phi_stage_halts
+lemma W_s_phi_stage (e s n : ℕ) : n ∈ W_s e s ↔ Phi_stage_halts e s n := by
+unfold W_s Phi_stage_halts
 simp
-constructor
-· intro ⟨h1, h2⟩
-  rw [Option.isSome_iff_exists] at h2
-  exact h2
-· intro h
-  obtain ⟨x, h⟩ := h
-  rw [Option.isSome_iff_exists]
-  constructor
-  · unfold Phi_stage at h
-    apply Code.evaln_bound at h
-    exact Nat.lt_add_right 1 h
-  · use x
+intro x h
+apply halt_input_bound e s n
+unfold Phi_stage_halts
+use x
+exact h
 
 /- ϕₑ(x)↓ ↔ x ∈ Wₑ -/
 lemma mem_W_phi (e n : ℕ) : n ∈ W e ↔ Phi_halts e n := by
@@ -202,35 +240,28 @@ unfold W Phi_halts
 exact Part.dom_iff_mem
 
 /- W_{s} ⊆ W_{e, s+1}  -/
-lemma W_stage_mono (e s : ℕ) : (W_stage e s) ⊆ (W_stage e (s+1)) := by
+lemma W_s_mono (e s : ℕ) : (W_s e s) ⊆ (W_s e (s+1)) := by
   intro x
-  unfold W_stage
+  unfold W_s
   simp
   intro h h1
-  have h2 : (Phi_stage_halts e s x) → (Phi_stage_halts e (s+1) x) := by
-    apply phi_halts_mono
   constructor
-  · tauto
-  ·
-
-
+  · linarith
+  · apply phi_halts_mono e s
+    · linarith
+    · exact h1
 
 /- Wₑ,ₛ ⊆ Wₑ  -/
-theorem W_stage_subset_W (e s : ℕ) : (W_stage e s).toSet ⊆ W e := by
-  intro x h
-  simp [W_stage] at h
-  simp [W]
-  obtain ⟨h1, h2⟩ := h
-  rw [Option.isSome_iff_exists] at h2
-  obtain ⟨a, hx⟩ := h2
-  rw [← Phi_halts]
-  rw [phi_halts_runtime_exists]
-  apply Exists.intro s
-  apply Exists.intro a
-  exact hx
+theorem W_s_subset_W (e s : ℕ) : (W_s e s) ⊆ W e := by
+  intro x
+  simp [W_s, W]
+  intro h h1
+  rw [← Phi_halts, phi_halts_runtime_exists]
+  use s
+
 
 /- Wₑ = ⋃ₛ Wₑ,ₛ -/
-theorem W_mem_iff_W_stage (e n: ℕ) : n ∈ W e ↔ ∃ (s : ℕ), n ∈ W_stage e s :=by
+theorem W_mem_iff_W_s (e n: ℕ) : n ∈ W e ↔ ∃ (s : ℕ), n ∈ W_s e s :=by
 constructor
 · intro h
   apply Part.dom_iff_mem.mp at h
@@ -238,103 +269,83 @@ constructor
   rw [phi_halts_runtime_exists] at h
   obtain ⟨s, h⟩ := h
   use s
-  rw [W_stage_phi_stage]
+  rw [W_s_phi_stage]
   exact h
 · intro h
   obtain ⟨s, h⟩ := h
-  apply W_stage_subset_W
+  apply W_s_subset_W
   exact h
 
-theorem W_eq_union_W_stage (e : ℕ) : W e = ⋃ (s : ℕ), W_stage e s := by
+theorem W_eq_union_W_s (e : ℕ) : W e = ⋃ (s : ℕ), W_s e s := by
 ext x
-rw [W_mem_iff_W_stage]
+rw [W_mem_iff_W_s]
 simp
 
 /- The elements that have will W_e at stage s -/
-def W_stage_new (e s : ℕ) : List ℕ :=
-  List.range (s+1) |>
-    List.filter (λ n => (Phi_stage e (s+1) n).isSome ∧
-                         (s = 0 ∨ (Phi_stage e (s) n).isNone))
-
-/- New elements at stage s are exactly W_{s+1} \ W_s -/
-lemma W_stage_new_eq (e s : ℕ) (h : s ≠ 0) :
-  (W_stage_new e s).toFinset = (W_stage e (s+1)) \ (W_stage e s) := by
-  simp [W_stage_new, W_stage, h]
-  apply subset_antisymm
-  · intro x
-    simp
-    intro h1 h2 h3
-    · constructor
-      · simp [(Nat.lt_add_right 1 h1), h2]
-      · simp [h3]
-  · intro x
-    simp
-    intro h1 h2 h3
-    have h4 : x < s + 1 := by
-      rw [Option.isSome_iff_exists] at h2
-      obtain ⟨a, h2⟩ := h2
-      apply halt_implies_runtime_gt_input e
-      exact h2
-    constructor
-    · exact h4
-    · constructor
-      · exact h2
-      · exact h3 h4
+def W_s_new (e s : ℕ) : Set ℕ := (W_s e (s+1)) \ (W_s e s)
 
 /- x appears as a new element at its runtime -/
-lemma W_stage_new_runtime (x e s : ℕ) : x ∈ W_stage_new e s ↔ s ∈ runtime e x := by
-  simp [W_stage_new, runtime, rfindOpt]
+lemma W_s_new_runtime (x e s : ℕ) : x ∈ W_s_new e s ↔ s ∈ runtime e x := by
+  simp [runtime, rfindOpt]
   constructor
-  · intro ⟨h, ⟨h1, h2⟩⟩
+  · simp [W_s_new, W_s]
+    intro h1 h2 h3
     constructor
     · constructor
-      · exact h1
-      · intro m hm
-        have h3 : Phi_stage_diverges e (m + 1) x := by
-          apply phi_halts_mono_reverse e (m+1) s
-          exact hm
-          rcases h2 with h2 | h2
-          · simp [h2, Phi_stage_diverges, Phi_stage_halts, Phi_stage, evaln]
-          · simp [Phi_stage_diverges, Phi_stage_halts]
-            intro y
-            by_contra h3
-            rw [h2] at h3
-            tauto
-        unfold Phi_stage_diverges Phi_stage_halts at h3
-        push_neg at h3
-        refine Option.eq_none_iff_forall_ne_some.mpr ?_
-        exact fun a ↦ h3 a
-    · exact h1
+      · exact Option.isSome_iff_exists.mpr h2
+      · have h4 : Phi_stage_halts e s x → x < s := by
+          apply halt_input_bound
+        have h5 : ¬Phi_stage_halts e s x := by
+          by_contra h
+          revert h3
+          simp
+          constructor
+          · exact h4 h
+          · exact h
+        intro m hm
+        apply phi_halts_mono_reverse e (m+1) at h5
+        · unfold Phi_stage_diverges Phi_stage_halts at h5
+          push_neg at h5
+          exact Option.eq_none_iff_forall_ne_some.mpr h5
+        · exact hm
+    exact Option.isSome_iff_exists.mpr h2
   · intro ⟨⟨h, h1⟩, h2⟩
     clear h2
     constructor
-    · rw [Option.isSome_iff_exists] at h
-      obtain ⟨a, h⟩ := h
-      apply halt_implies_runtime_gt_input e (s+1) a
-      exact h
-    · constructor
+    · apply Option.isSome_iff_exists.mp at h
+      simp [W_s]
+      constructor
+      · apply halt_input_bound
+        unfold Phi_stage_halts
+        exact h
       · exact h
-      · by_cases h2 : s=0
-        · simp [h2]
-        · right
-          have h3 : s - 1 < s := by
-            exact sub_one_lt h2
-          apply h1 at h3
-          rw [sub_one_add_one_eq_of_pos] at h3
-          exact h3
-          exact zero_lt_of_ne_zero h2
+    · simp [W_s, Phi_stage_halts]
+      intro h
+      push_neg
+      intro y
+      by_cases h2 : s=0
+      · simp [h2]
+        unfold Phi_stage
+        simp
+      · have h3 : s - 1 < s := by
+          exact sub_one_lt h2
+        apply h1 at h3
+        rw [sub_one_add_one_eq_of_pos] at h3
+        · rw [Option.eq_none_iff_forall_not_mem] at h3
+          exact h3 y
+        · exact zero_lt_of_ne_zero h2
 
 /- The elements in W_e enumerated at stage s-/
 def W_enum (e : ℕ) : ℕ → List ℕ
 | 0     => []
 | s + 1 =>
   let prev := W_enum e (s - 1)
-  let delta := W_stage_new e s
+  let delta := (W_s_new e s).toList
   prev ++ delta.filter (λ n => n ∉ prev)
 
-lemma W_stage_eq_W_enum (e s : ℕ) : W_stage e s = (W_enum e s).toFinset := by
+lemma W_s_eq_W_enum (e s : ℕ) : W_s e s = (W_enum e s).toFinset := by
   induction' s with s hs
-  · unfold W_enum W_stage Phi_stage
+  · unfold W_enum W_s Phi_stage
     simp
     refine Finset.filter_eq_empty_iff.mpr ?_
     intro x
@@ -346,10 +357,10 @@ lemma W_stage_eq_W_enum (e s : ℕ) : W_stage e s = (W_enum e s).toFinset := by
     rfl
   apply subset_antisymm
   · intro x
-    have hs1 : (W_stage e (s+1)) = (W_stage_new e s).toFinset ∪  (W_stage e s) := by
-      rw [W_stage_new_eq]
+    have hs1 : (W_s e (s+1)) = (W_s_new e s).toFinset ∪  (W_s e s) := by
+      rw [W_s_new_eq]
       simp
-    unfold W_stage W_enum
+    unfold W_s W_enum
     simp
     intro h h1
 
