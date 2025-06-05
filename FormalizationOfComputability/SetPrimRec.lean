@@ -3,11 +3,10 @@ Copyright (c) 2025 David J. Webb. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
+
 import Mathlib.Computability.Halting
 import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Order.ConditionallyCompleteLattice.Basic
-
-set_option warningAsError false
 
 /-
 # Sets for Computability Theory
@@ -26,6 +25,7 @@ This allows for set operations such as union, intersection, set difference, and 
 ## Notation
 - '∆' is used for symmetric difference (see symmDiff)
 -/
+namespace Computability
 
 def set_primrec (X : Set ℕ) : Prop :=
     ∃ (f : ℕ → Bool), Primrec f ∧ ∀ x, x ∈ X ↔ f x = true
@@ -469,8 +469,6 @@ lemma compl_eq_star (X Y : Set ℕ) (hXY : eq_star X Y) : eq_star Xᶜ Yᶜ := b
   revert hXY
   simp
 
-
-
 theorem set_partrec_eq_star (X Y : Set ℕ) (hXY : eq_star X Y) :
     set_partrec X → set_partrec Y := by
   let S : Finset ℕ := hXY.toFinset
@@ -511,5 +509,7 @@ theorem set_partrec_eq_star_iff (X Y : Set ℕ) (hXY : eq_star X Y) :
     exact fun a ↦ set_partrec_eq_star Y X hXY a
 
 abbrev set_sigma01_eq_star_iff := set_partrec_eq_star_iff
+
+end Computability
 
 -- #min_imports

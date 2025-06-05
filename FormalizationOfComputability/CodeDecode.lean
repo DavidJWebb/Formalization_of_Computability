@@ -3,9 +3,8 @@ Copyright (c) 2025 David J. Webb. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
-import FormalizationOfComputability.SetPrimRec
-import Mathlib.Order.Filter.Cofinite
-import Mathlib.Tactic.Linarith
+import Mathlib.Computability.PartrecCode
+
 
 set_option warningAsError false
 
@@ -55,3 +54,5 @@ lemma encode_ofNatCode : ∀ n, encodeCode (ofNatCode n) = n
     simp only [ofNatCode.eq_5]
     cases n.bodd <;> cases n.div2.bodd <;>
       simp [m, encodeCode, ofNatCode, IH, IH1, IH2, Nat.bit_val]
+
+--#min_imports
