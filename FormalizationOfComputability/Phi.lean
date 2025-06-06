@@ -336,13 +336,14 @@ lemma W_s_mono_reverse (e s t : ℕ) (h : t ≤ s) : (W_s e t) ⊆ (W_s e s) := 
     · exact h
     · exact h2
 
-lemma Ws_runtime (e n s : ℕ) (h : n ∈ W_s e s) : ∃ y, y ∈ runtime e n ∧ n ∈ W_s e (y+1) := by
+/- Membership in some W_{e,s} implies runtime t exists, and membership in W_{e, t}-/
+lemma Ws_runtime (e n s : ℕ) (h : n ∈ W_s e s) : ∃ t, t ∈ runtime e n ∧ n ∈ W_s e (t+1) := by
   simp [W_s] at h
   obtain ⟨h, h1⟩ := h
   have h2 : ∃ s, Phi_s_halts e s n := by exact Exists.intro s h1
   rw [← phi_halts_stage_exists, phi_halts_runtime_exists] at h2
-  obtain ⟨y, h2⟩ := h2
-  use y
+  obtain ⟨t, h2⟩ := h2
+  use t
   constructor
   · exact h2
   · simp [W_s]
