@@ -211,8 +211,8 @@ def runtime (e n : ℕ) : Part ℕ :=
 
 /- Statements involving runtime can appear to have off-by-one errors.
 This is because if x has runtime s, x ∉ W_{e,s} but instead x ∈ W_{e, s+1}. -/
-lemma runtime_is_min (e n s : ℕ) : (s ∈ (runtime e n)) ↔
-    Phi_s_halts e (s+1) n ∧ (∀ (t : ℕ), t < s → Phi_s_diverges e (t+1) n) := by
+lemma runtime_is_min (e n r : ℕ) : (r ∈ (runtime e n)) ↔
+    Phi_s_halts e (r+1) n ∧ (∀ (t : ℕ), t < r → Phi_s_diverges e (t+1) n) := by
   constructor
   · intro h
     simp [runtime, rfindOpt] at h
@@ -267,12 +267,12 @@ lemma phi_halts_stage_exists (e n : ℕ) : Phi_halts e n ↔ ∃ s, Phi_s_halts 
     use x
     use s
 
-lemma phi_halts_runtime_exists (e n : ℕ) : Phi_halts e n ↔ ∃ y, y ∈ runtime e n := by
+lemma phi_halts_runtime_exists (e n : ℕ) : Phi_halts e n ↔ ∃ r, r ∈ runtime e n := by
   constructor
   · intro h
     rw [phi_halts_stage_exists] at h
     obtain ⟨s, h⟩ := h
-    have h1 : ∃ y, y ∈ rfindOpt (λ s => Phi_s e s n) := by
+    have h1 : ∃ r, r ∈ rfindOpt (λ s => Phi_s e s n) := by
       rw [← Part.dom_iff_mem, rfindOpt_dom]
       use s
       exact h
@@ -294,10 +294,10 @@ lemma phi_halts_runtime_exists (e n : ℕ) : Phi_halts e n ↔ ∃ y, y ∈ runt
         apply h3
         exact add_lt_of_lt_sub h
     · exact h2
-  · intro ⟨y, h⟩
+  · intro ⟨r, h⟩
     rw [runtime_is_min] at h
     rw [phi_halts_stage_exists]
-    use y+1
+    use r+1
     exact h.left
 
 /- ϕₑ,ₛ(x)↓ ↔ x ∈ Wₑ,ₛ -/
@@ -337,13 +337,13 @@ lemma W_s_mono_reverse (e s t : ℕ) (h : t ≤ s) : (W_s e t) ⊆ (W_s e s) := 
     · exact h2
 
 /- Membership in some W_{e,s} implies runtime t exists, and membership in W_{e, t}-/
-lemma Ws_runtime (e n s : ℕ) (h : n ∈ W_s e s) : ∃ t, t ∈ runtime e n ∧ n ∈ W_s e (t+1) := by
+lemma Ws_runtime (e n s : ℕ) (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n ∧ n ∈ W_s e (r+1) := by
   simp [W_s] at h
   obtain ⟨h, h1⟩ := h
   have h2 : ∃ s, Phi_s_halts e s n := by exact Exists.intro s h1
   rw [← phi_halts_stage_exists, phi_halts_runtime_exists] at h2
-  obtain ⟨t, h2⟩ := h2
-  use t
+  obtain ⟨r, h2⟩ := h2
+  use r
   constructor
   · exact h2
   · simp [W_s]
