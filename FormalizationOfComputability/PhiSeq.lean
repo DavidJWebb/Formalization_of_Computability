@@ -7,6 +7,7 @@ import FormalizationOfComputability.Phi
 import Mathlib.Data.WSeq.Basic
 import Mathlib.Order.Preorder.Finite
 import Mathlib.Data.Set.Finite.Lattice
+import Mathlib.Data.Set.Card
 
 /-
 # Wₑ as a sequence
@@ -26,6 +27,12 @@ def PhiNewList (e s : ℕ) : List ℕ :=
   (List.range (s+1)).filter (λ n => (Phi_s_halts e (s+1) n ∧ ¬ Phi_s_halts e s n))
 
 def PhiNew (e s : ℕ) : Finset ℕ := (PhiNewList e s).toFinset
+
+lemma PhiNewList_mem (e s x : ℕ) : x ∈ PhiNewList e s ↔ x ∈ PhiNew e s := by
+  constructor
+  · simp [PhiNewList, PhiNew]
+  · simp [PhiNew]
+
 
 /- The elements halting at stage s are exactly W_{e, s+1} \ W_{e, s} -/
 lemma PhiNew_eq_Ws_diff (e s : ℕ) : (PhiNew e s) = (W_s e (s+1)) \ (W_s e s) := by
@@ -63,13 +70,13 @@ lemma PhiNew_disjoint_gt (e s t : ℕ) (h : s>t) :
     Disjoint (PhiNew e s) (PhiNew e t) := by
   rw [Finset.disjoint_iff_ne]
   simp [PhiNew, PhiNewList]
-  intro a h1 h2 h3 b h4 h5 h6
-  contrapose h5
-  simp at h5
-  rw [h5] at h3
+  intro a _ _ h1 b _ h2 _
+  contrapose h2
+  simp at h2
+  rw [h2] at h1
   apply phi_halts_mono_reverse e
   · exact h
-  · exact h3
+  · exact h1
 
 lemma PhiNew_pairwise_disjoint (e : ℕ) :
   Set.PairwiseDisjoint (Set.univ : Set ℕ) (PhiNew e) := by
@@ -205,7 +212,10 @@ lemma Union_split (t : ℕ) (p : ℕ → Set ℕ) :
     · intro i h3
       exact Set.subset_iUnion_of_subset i fun ⦃a⦄ a ↦ a
 
-/- W_e is finite iff eventually there are no new elements-/
+/- TFAE :
+W_e is finite
+W_e = some W_{e, s}
+Eventually there are no new elements -/
 lemma PhiNew_stabilizes_implies_We_finite (e t : ℕ) (h : ∀ s ≥ t, PhiNew e s = ∅) :
     (W e).Finite := by
   rw [We_eq_union_WsNew, Set.finite_iUnion_iff]
@@ -287,8 +297,6 @@ lemma We_finite_implies_Ws_stabilizes (e : ℕ) (h : (W e).Finite) :
     simp
     exact h1
 
--- lemma We_finite_implies_We_eq_Ws
-
 lemma We_finite_iff_Ws_stabilizes (e : ℕ) :
     (W e).Finite ↔ (∃ t, ∀ s ≥ t, PhiNew e s = ∅) := by
   constructor
@@ -297,7 +305,16 @@ lemma We_finite_iff_Ws_stabilizes (e : ℕ) :
     apply PhiNew_stabilizes_implies_We_finite
     exact h
 
--- We_eq_Ws_iff_Ws_stabilizes
+lemma We_finite_iff_We_eq_Ws (e : ℕ) : (W e).Finite ↔ ∃ s, W e = W_s e s := by
+  constructor
+  · rw [We_finite_iff_Ws_stabilizes]
+    intro ⟨t, h⟩
+    use t
+    apply PhiNew_stabilizes_implies_We_eq_Ws
+    exact h
+  · intro ⟨s, h⟩
+    rw [h]
+    simp
 
 
 /- x appears as a new element at its runtime -/
@@ -344,20 +361,21 @@ lemma PhiNew_runtime (y e s : ℕ) : y ∈ PhiNew e s ↔ s ∈ runtime e y := b
           · exact zero_lt_of_ne_zero h2
 
 /- The elements in W_e enumerated before stage s, in the order they appeared -/
-def W_prefix (e : ℕ) : ℕ → List ℕ
+def WPrefix (e : ℕ) : ℕ → List ℕ
 | 0     => []
-| s + 1 => (W_prefix e s) ++ (PhiNewList e s)
+| s + 1 => (WPrefix e s) ++ (PhiNewList e s)
 
--- flatten PhiNewList e t from t=0 to t=s
+-- flatten PhiNewList e t from t=0 to t=s?
 
 open List.Nodup
 
-lemma W_s_eq_prefix (e s : ℕ) : W_s e s = (W_prefix e s).toFinset := by
+/- WPrefix e s is exactly W_{e, s} in order of enumeration -/
+lemma Ws_eq_prefix (e s : ℕ) : W_s e s = (WPrefix e s).toFinset := by
   induction' s with s hs
-  · simp [W_prefix, W_s]
+  · simp [WPrefix, W_s]
   · apply subset_antisymm
     intro y h
-    simp [W_prefix]
+    simp [WPrefix]
     by_cases h1 : y ∈ (W_s e s)
     · left
       rw [← List.mem_toFinset, ← hs]
@@ -374,34 +392,44 @@ lemma W_s_eq_prefix (e s : ℕ) : W_s e s = (W_prefix e s).toFinset := by
           simp [W_s] at h1
           tauto
     · intro x h
-      simp [W_prefix, PhiNew, W_s, ← List.mem_toFinset, ← hs] at h
+      simp [WPrefix, PhiNew, W_s] at h
+      rw [PhiNewList_mem, ← List.mem_toFinset, ← hs] at h
       simp [W_s]
       simp [W_s] at h
       rcases h with h | h
       · constructor
         · linarith
-        · refine phi_halts_mono e s (s + 1) x (le_add_right s 1) h.right
-      · tauto
+        · apply phi_halts_mono e s
+          · linarith
+          · exact h.right
+      · rw [PhiNew_eq_Ws_diff] at h
+        simp [W_s] at h
+        constructor
+        · exact h.left.left
+        · exact h.left.right
 
-lemma nodup_W_prefix (e s : ℕ) : List.Nodup (W_prefix e s) := by
+lemma WPrefix_mem (e s n : ℕ) : n ∈ WPrefix e s ↔ n ∈ W_s e s := by
+  rw [← List.mem_toFinset, Ws_eq_prefix]
+
+/- Elements cannot be enumerated twice-/
+lemma nodup_WPrefix (e s : ℕ) : List.Nodup (WPrefix e s) := by
   induction' s with s ih
-  · unfold W_prefix
+  · unfold WPrefix
     simp
-  · simp [W_prefix]
+  · simp [WPrefix]
     apply append
     · exact ih
     · apply List.Nodup.filter
       exact List.nodup_range
     · unfold List.Disjoint
       intro a h h1
-      rw [← List.mem_toFinset, PhiNew_eq] at h1
-      rw [← List.mem_toFinset, ← W_s_eq_prefix] at h
-      simp at h1
+      simp [PhiNewList_mem, PhiNew_eq_Ws_diff, Ws_eq_prefix] at h1
       obtain ⟨h1, h2⟩ := h1
-      contradiction
+      tauto
 
-lemma W_prefix_mono (e s t : ℕ) (h : s ≤ t) :
-  (W_prefix e s) <+: (W_prefix e t) := by
+/- The WPrefixes are prefixes of each other-/
+lemma WPrefix_mono (e s t : ℕ) (h : s ≤ t) :
+  (WPrefix e s) <+: (WPrefix e t) := by
   induction' t with t ih
   · simp at h
     rw [h]
@@ -411,119 +439,52 @@ lemma W_prefix_mono (e s t : ℕ) (h : s ≤ t) :
         exact le_of_lt_succ (lt_of_le_of_ne h h1)
       apply ih at h2
       apply List.IsPrefix.trans h2
-      simp [W_prefix]
+      simp [WPrefix]
+
+
+/- The first n elements of W_e, in enumeration order (if it has that many)-/
+/- partial def WnUpToAux (e n s : ℕ) (acc : List ℕ) : Option (List ℕ) :=
+  if acc.length ≥ n then
+    some acc
+  else
+    WnUpToAux e n (s + 1) (acc ++ ((WPrefix e s).filter (· ∉ acc)))
+
+def WnUpTo (e n : ℕ) : Option (List ℕ) :=
+  WnUpToAux e n 0 [] -/
 
 open Stream'
 open Stream'.Seq
 
 -- due to Mario Carneiro
-def prefix_union_step : (ℕ → List ℕ) → WSeq ℕ :=
+def PrefixUnionStage : (ℕ → List ℕ) → WSeq ℕ :=
   Seq.corec fun f =>
     match f 0 with
     | [] => some (Option.none, fun n => f (n+1))
     | .cons a _ => some (some a, fun n => (f n).tail)
 
 /- This tracks what happens at each stage, emitting 'none' when no elements halt-/
-def W_seq_step (e : ℕ) : WSeq ℕ := prefix_union_step (W_prefix e)
-
-partial def W_stream (e : ℕ) (s : ℕ) (prev : List ℕ) : Stream' (Option ℕ) :=
-  let diff := (W_prefix e s).drop prev.length
-  match diff with
-  | [] =>
-    W_stream e (s + 1) prev
-  | List.cons h _ =>
-    Stream'.cons (some h) (W_stream e s (prev ++ [h]))
-
-lemma W_stream_finite (e : ℕ) : (W e).Finite → (∃ N, ∀ n ≥ N, ¬(W_stream e)[n]?) := by
-  constructor
-
-def W_seq_stream (e : ℕ) : Stream'.Seq ℕ :=
-  let init := W_prefix e 0
-  ⟨W_stream e 1 init, by
-    unfold IsSeq
-    intro n h
-    by_cases h1 : (W e).Finite
-    ·
-    ·
-  ⟩
-
-/- W_seq skips 'none' when there is a next element-/
-partial def W_seq (e : ℕ) : WSeq ℕ :=
-  Seq.corec (fun (state : ℕ × List ℕ) =>
-    let (s, remaining) := state
-    match remaining with
-    | []   =>
-      let new := PhiNew e s
-      match new with
-      | []      => Option.none  -- diverge if no new element at this stage
-      | .cons a tail! => some (a, (s + 1, tail!))
-    | .cons a tail! => some (a, (s, tail!))
-  ) (0, [])
-
-lemma W_prefix_true (e s n : ℕ) :
-  n ∈ (W_prefix e s) ↔ n ∈ W_seq_stream e := by
-  rw [splitAt.eq_def]
-  ext i a
-  simp only [List.get_ofFn]
-  induction' h : (W_prefix e s).length with n ih generalizing i
-  · have h1 : (W_prefix e s) = [] := by exact List.eq_nil_iff_length_eq_zero.mpr h
-    simp [h1]
-  · by_cases h2 : i ≤ n
-
--- the below was all built when W_seq was a Stream', not a WSeq.
-
-lemma W_seq_aux_lemma (e k s n: ℕ) (acc : List ℕ) (h : W_seq.aux e k s acc = n):
-    ∃ t, n ∈ W_prefix e t := by
-  sorry
-
-lemma exists_stage_of_mem {e n : ℕ} (h : n ∈ Set.range (W_seq e)) :
-    ∃ s, n ∈ W_prefix e s := by
-  rcases h with ⟨k, hk⟩
-  suffices aux : ∀ (k : ℕ), W_seq e k = n → ∃ s, n ∈ W_prefix e s by
-      exact aux k hk
-  intro l
-  induction l using Nat.strong_induction_on with
-  | h l ih =>
-    intro h
-    unfold W_seq at h
-    exact W_seq_aux_lemma e l 0 n [] h
+def Wenum (e : ℕ) : WSeq ℕ := PrefixUnionStage (WPrefix e)
 
 
-lemma W_seq_mem_iff (e n : ℕ) : n ∈ Set.range (W_seq e) ↔ ∃ t, n ∈ W_prefix e t := by
-  constructor
-  · intro h
-    apply exists_stage_of_mem at h
-    exact h
-  · intro h
-    obtain ⟨s, h⟩ := h
+lemma Wenum_mem (e n x: ℕ) (h : WSeq.get? (Wenum e) n = some x) : ∃ s, x ∈ WPrefix e s := by
+  simp [Wenum, PrefixUnionStage] at h
+  induction' n with n ih
+  · simp [WSeq.get?] at h
+
+    cases' WPrefix e 0 with a tail!
 
 
-lemma mem_W_seq_iff_halt (e n : ℕ) : n ∈ Set.range (W_seq e) ↔ Phi_halts e n := by
-  constructor
-  · intro h
-    rw [W_seq_mem_iff] at h
-    obtain ⟨t, h⟩ := h
-    refine (phi_halts_stage_exists e n).mpr ?_
-    have h1 : ∃ s, n ∈ W_s e s := by
-      use t
-      simp [W_s_eq_prefix]
-      exact h
-    obtain ⟨s, h1⟩ := h1
-    use s
-    exact (W_s_Phi_s e s n).mp h1
-  · intro h
-    rw [phi_halts_stage_exists] at h
-    obtain ⟨s, h⟩ := h
-    rw [W_seq_mem_iff]
-    use s
-    have h1 : n ∈ W_s e s := by
-      exact (W_s_Phi_s e s n).mpr h
-    rw [W_s_eq_prefix] at h1
-    exact List.mem_dedup.mp h1
 
-theorem W_enum_eq_W (e : ℕ) : W e = Set.range (W_seq e) := by
-  ext n
-  rw [mem_W_phi, ← mem_W_seq_iff_halt]
+  · sorry
+
+/- def WEnum (e : ℕ) : Stream'.Seq ℕ :=
+  ⟨WStream e 1 [], by sorry
+  ⟩ -/
+
+
+
+
+
 
 
 lemma inf_inc_sigma01_seq_is_delta01 (e : ℕ) (h1 : (W e).Infinite)
