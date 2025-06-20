@@ -6,11 +6,14 @@ Copyright (c) 2025 David J. Webb. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
-import FormalizationOfComputability.SetPrimRec
+import FormalizationOfComputability.Sets
 import Mathlib.Order.Filter.Cofinite
 import Mathlib.Tactic.Linarith
 
-set_option warningAsError false
+namespace Computability
+
+abbrev Delta01 := computable_set
+abbrev Sigma01 := partrec_set
 
 def Coinfinite (X : Set ℕ) : Prop := Xᶜ.Infinite
 def Inf_coinf (X : Set ℕ) : Prop := X.Infinite ∧ Coinfinite X
@@ -49,7 +52,7 @@ lemma odds_infinite : Odds.Infinite := by
     simp
   · linarith
 
-lemma set_primrec_evens : set_primrec Evens := by
+lemma primrec_set_evens : primrec_set Evens := by
   let f: ℕ → Bool := fun x => decide (x % 2 = 0)
   use f
   constructor
@@ -68,23 +71,23 @@ lemma set_primrec_evens : set_primrec Evens := by
     unfold Evens
     simp
 
-lemma set_delta01_evens : set_computable Evens := by
-  apply set_primrec_is_computable
-  exact set_primrec_evens
+lemma set_delta01_evens : computable_set Evens := by
+  apply primrec_set.computable
+  exact primrec_set_evens
 
 lemma set_sigma01_evens : Sigma01 Evens := by
-  apply set_delta01_is_sigma01
+  apply computable_set.partrec
   exact set_delta01_evens
 
 def Pi01 (X : Set ℕ): Prop := Sigma01 Xᶜ
 
 theorem delta01_is_sigma01 (X : Set ℕ) (h: Delta01 X) : Sigma01 X := by
-apply set_delta01_is_sigma01
+apply computable_set.partrec
 exact h
 
 theorem delta01_is_pi01 (X : Set ℕ) (h: Delta01 X) : Pi01 X := by
-apply set_delta01_is_sigma01
-apply set_computable_compl
+apply computable_set.partrec
+apply computable_set.Compl
 exact h
 
 theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧ Pi01 X := by
@@ -106,14 +109,14 @@ theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧
 theorem set_pi01_union (X Y : Set ℕ) (hX : Pi01 X) (hY : Pi01 Y) : Pi01 (X∪Y) := by
   unfold Pi01
   rw [Set.compl_union]
-  apply set_sigma01_inter
+  apply partrec_set.Inter
   exact hX
   exact hY
 
 theorem set_pi01_inter (X Y : Set ℕ) (hX : Pi01 X) (hY : Pi01 Y) : Pi01 (X∩Y) := by
   unfold Pi01
   rw [Set.compl_inter]
-  apply set_sigma01_union
+  apply partrec_set.Union
   exact hX
   exact hY
 
@@ -123,7 +126,7 @@ theorem set_pi01_inter (X Y : Set ℕ) (hX : Pi01 X) (hY : Pi01 Y) : Pi01 (X∩Y
 -- set_pi01_sdiff_computable
 
 theorem finite_set_pi01 (X : Set ℕ) (h: Finite X) : Pi01 X:= by
-apply cofinite_set_sigma01
+apply cofinite_partrec_set
 rw [compl_compl]
 exact h
 
@@ -162,8 +165,8 @@ lemma immune_is_coinf (X : Set ℕ) (hX : Immune X) : Coinfinite X := by
     constructor
     · simp [Coinfinite] at h1
       rw [← Set.finite_coe_iff] at h1
-      apply finite_set_delta01 at h1
-      rw [set_delta01_compl_iff, compl_compl] at h1
+      apply finite_computable_set at h1
+      rw [computable_set.Compl_iff, compl_compl] at h1
       constructor
       · exact h1
       · exact hInf
@@ -267,7 +270,7 @@ theorem cemaximal_iff_compl_cohesive (M : Set ℕ) (hM: Sigma01 M) :
   constructor
   · intro h W hW
     have hXuM : Sigma01 (M∪W) := by
-      exact set_sigma01_union M W hM hW
+      exact partrec_set.Union M W hM hW
     have h1 : W ∩ Mᶜ = (W ∪ M)\ M := by
       rw [Set.union_diff_right]
       exact rfl
@@ -319,7 +322,7 @@ lemma coh_is_immune (C : Set ℕ) (hC : Cohesive C) : Immune C := by
         · rw [Set.diff_eq_empty.mpr h]
           simp
         · exact hY
-      apply set_partrec_eq_star Y C at hY2
+      apply partrec_set_eq_star Y C at hY2
       apply cohesive_is_not_sigma01 at hC
       revert hC
       simp
