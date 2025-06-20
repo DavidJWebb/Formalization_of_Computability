@@ -3,26 +3,22 @@ Copyright (c) 2025 David J. Webb. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
+import FormalizationOfComputability.PrimRecFilter
 import FormalizationOfComputability.Sets
 import Mathlib.Tactic.Linarith
-
 /-
 # ϕₑ and Wₑ
 This file contains the definitions most commonly used by working computability theorists:
 the use functions ϕₑ, the enumerable sets Wₑ, and their coputable
 approximations ϕ_{e, s} and W_{e, s}.
-
 ## Main results
-
 
 ## Notation
 - 'Delta01' is used to mean a set is computable
 - 'Sigma01' is used to mean a set is partial computable
-
 ## References
 - [R. I. Soare *Turing Computability - Theory and Applications*] [Soare2016]
 -/
-
 
 
 namespace Computability
@@ -106,10 +102,17 @@ def Phi_diverges (e n : ℕ) : Prop :=
     ¬ Phi_halts e n
 
 
+instance (e s n : ℕ) : Decidable (∃ x, x ∈ Phi_s e s n) := by
+  simp [Phi_s]
+  have h : Decidable (∃ x, evaln s (ofNatCode e) n = some x) := by
+     match evaln s (ofNatCode e) n with
+    | some x        => exact isTrue ⟨x, rfl⟩
+    | Option.none   => exact isFalse (λ ⟨x, h⟩ => Option.noConfusion h)
+  apply instDecidableAnd
+
 /-- ϕₑ,ₛ(n) is decidable -/
 instance (e s n : ℕ): Decidable (Phi_s_halts e s n) := by
-  unfold Phi_s_halts Phi_s
-  simp
+  simp [Phi_s_halts, Phi_s]
   have h : Decidable (∃ x, evaln s (ofNatCode e) n = some x) := by
      match evaln s (ofNatCode e) n with
     | some x        => exact isTrue ⟨x, rfl⟩
@@ -159,98 +162,63 @@ lemma halt_stage_gt_zero (e s n : ℕ) (h : Phi_s_halts e s n) : s > 0 := by
 
 open Primrec
 
-
-lemma primrec_filter (A : ℕ → Prop) (hf : DecidablePred A) (hf1 : PrimrecPred A) :
-    Primrec λ n => ((List.range (n)).filter (fun y => A y)) := by
-  -- the function (n => the list of values y < n such that A y) is primitive recursive
-  let f : ℕ → List ℕ := λ n => List.range n
-  let g : ℕ → ℕ → Option Nat := λ x => (λ y => (if A y = True then y else Option.none))
-  have h1 : Primrec fun (n : ℕ) => List.filterMap (g n) (f n) := by
-    apply listFilterMap
-    · exact list_range
-    · unfold g
-      apply Primrec.ite
-      · simp
-        refine PrimrecPred.comp hf1 ?_
-        exact snd
-      · refine option_some_iff.mpr ?_
-        exact snd
-      · exact Primrec.const Option.none
-  -- this filter map sends n to [0,...,n-1], then for each x in that list, keeps x iff A x
-  have h2 : ∀ n, ∀ i, i ∈ List.filterMap (g n) (f n) ↔
-                      i ∈ (List.range (n)).filter (fun y => A y) := by
-    simp [f, g]
-  have h3 : ∀ n, List.Sorted (· < ·) (List.filterMap (g n) (f n)) := by
-    intro n
-    simp [f, g]
-    sorry
-
-  have h4 : ∀ n, List.Sorted (· < ·) ((List.range (n)).filter (fun y => A y)) := by
-    intro n
-    exact List.Sorted.filter (fun y ↦ decide (A y)) (List.sorted_lt_range n)
-
-  have h5 : ∀ n, List.filterMap (g n) (f n) = (List.range (n)).filter (fun y => A y) := by
-    intro n
-    sorry
-
-  have h6 : (fun n => (List.range (n)).filter (fun y => A y)) =
-            (fun n => List.filterMap (g n) (f n)) := by
-    symm
-    exact (Set.eqOn_univ (fun n ↦ List.filterMap (g n) (f n)) fun n ↦
-          List.filter (fun y ↦ decide (A y)) (List.range n)).mp
-          fun ⦃x⦄ a ↦ h5 x
-  rw [h6]
-  exact h1
-
-
-
-
 /-- ϕₑ,ₛ is a primitive recursive function -/
 lemma phi_s_primrec (e s : ℕ) : Primrec (Phi_s e s) := by
   unfold Phi_s
   have h : Primrec fun (((s, e),n) : (ℕ × ℕ) × ℕ) => evaln s (ofNatCode e) n := by
-      exact primrec_evaln
+    exact primrec_evaln
   have h1 : Primrec (evaln s (ofNatCode e)) := by
-    exact h.comp (Primrec.pair (Primrec.pair (Primrec.const s) (Primrec.const e))
-    Primrec.id)
-  refine Primrec.ite ?_ ?_ ?_
-  · refine PrimrecPred.and ?_ ?_
-    · refine PrimrecRel.comp ?_ ?_ ?_
-      · exact Primrec.nat_lt
-      · exact Primrec.const e
-      · exact Primrec.const s
-    · unfold PrimrecPred
-  · exact h1
-  · exact Primrec.const Option.none
+    exact h.comp (Primrec.pair (Primrec.pair (Primrec.const s) (Primrec.const e)) Primrec.id)
+  apply Primrec.ite ?_ h1 (Primrec.const Option.none)
+  · apply PrimrecPred.and ?_ ?_
+    · exact PrimrecRel.comp Primrec.nat_lt (Primrec.const e) (Primrec.const s)
+    · apply primrec_bounded_exist2
+      simp [PrimrecRel, Primrec₂]
+      apply Primrec.ite
+      · apply PrimrecRel.comp Primrec.eq
+        · exact Primrec.comp h1 snd
+        · exact option_some_iff.mpr fst
+      · exact Primrec.const true
+      · exact Primrec.const false
 
-/- ϕₑ is a partial computable function -/
+lemma phi_s_halts_primrec (e s : ℕ) : PrimrecPred (Phi_s_halts e s) := by
+  unfold Phi_s_halts
+  have h (n : ℕ) : (∃ x, Phi_s e s n = some x) ↔ (∃ x < s, Phi_s e s n = some x) := by
+    constructor
+    · intro ⟨x, h⟩
+      use x
+      constructor
+      · apply halt_output_bound e s n
+        exact h
+      · exact h
+    · intro ⟨x, h⟩
+      use x
+      exact h.right
+  simp [PrimrecPred]
+  have h1 (n : ℕ) : (decide (∃ x, x ∈ Phi_s e s n)) = (decide (∃ x < s, x ∈ Phi_s e s n)) := by
+    simp [h]
+  simp [h1]
+  apply primrec_bounded_exist2
+  refine PrimrecRel.comp₂ ?_ ?_ ?_
+  · exact Primrec.eq
+  · refine comp₂ (phi_s_primrec e s) Primrec₂.right
+  · refine comp₂ option_some Primrec₂.left
+
+/-- ϕₑ is a partial computable function -/
 theorem phi_partrec (e : ℕ) : Nat.Partrec (Phi e) := by
   unfold Phi
   rw [Code.exists_code]
   use ofNatCode e
 
-
-/-- The Wₑ,ₛ are Δ01-/
-lemma W_s_Delta01 (e s : ℕ) : Delta01 (W_s e s) := by
-  simp [Delta01, computable_set, W_s]
+/-- The Wₑ,ₛ are primitive recursive-/
+lemma W_s_Primrec (e s : ℕ) : primrec_set (W_s e s) := by
+  simp [primrec_set, W_s]
   use Phi_s_halts e s
   constructor
-  · apply Primrec.to_comp
-    simp [Phi_s_halts]
-    have h : ∀ b, ((∃ x, x ∈ Phi_s e s b) ↔ (∃ x < s, x ∈ Phi_s e s b)) := by
-      intro b
-      constructor
-      · intro ⟨x, h⟩
-        use x
-        constructor
-        · apply halt_output_bound e s b
-          exact h
-        · exact h
-      · intro ⟨x, h⟩
-        use x
-        exact h.right
-    · have h1 := phi_s_primrec e s
-      sorry
+  · apply Primrec.ite
+    · exact phi_s_halts_primrec e s
+    · exact Primrec.const true
+    · exact Primrec.const false
   · intro x
     constructor
     · intro ⟨h, h1⟩
@@ -333,15 +301,14 @@ lemma phi_halts_mono_reverse (e s t n : ℕ) (h : s ≤ t) (h1 : Phi_s_diverges 
   rw [not_not, not_not]
   exact fun h1 ↦ phi_halts_mono e s t n h h1
 
-
-/- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
+/-- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
 def runtime (e n : ℕ) : Part ℕ :=
   rfindOpt (fun s => if (Phi_s e (s) n).isSome then some s else Option.none)
 
 /- Statements involving runtime can appear to have off-by-one errors.
 This is because if x has runtime s, x ∉ W_{e,s} but instead x ∈ W_{e, s+1}. -/
 
-/- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
+/-- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
 lemma runtime_is_min (e r n : ℕ) : (r ∈ (runtime e n)) ↔
     Phi_s_halts e (r) n ∧ (∀ (t : ℕ), t < r → Phi_s_diverges e t n) := by
   constructor
@@ -372,7 +339,7 @@ lemma runtime_is_min (e r n : ℕ) : (r ∈ (runtime e n)) ↔
         exact Option.eq_none_iff_forall_ne_some.mpr hm
     · exact h1
 
-/- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
+/-- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
 lemma phi_halts_stage_exists (e n : ℕ) : Phi_halts e n ↔ ∃ s, Phi_s_halts e s n := by
   unfold Phi_s_halts Phi_halts Phi_s Phi
   simp [evaln_complete]
