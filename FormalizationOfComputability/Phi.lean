@@ -486,3 +486,5 @@ lemma W_eq_union_W_s (e : ℕ) : W e = ⋃ (s : ℕ), W_s e s := by
 ext x
 rw [W_mem_iff_W_s]
 simp
+
+#min_imports

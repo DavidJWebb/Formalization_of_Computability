@@ -1,0 +1,183 @@
+/- Tracks output at each stage, emitting 'none' when no calculation halts -/
+def WStream (e : ℕ) : Stream' (Option ℕ) :=
+  let next (s : ℕ × List ℕ) : ℕ × List ℕ :=
+    let (stage, seen) := s
+    let new := (WPrefix e stage).filter (fun x => x ∉ seen)
+    match new with
+    | []      => (stage + 1, seen)
+    | List.cons x _  => (stage, seen ++ [x])
+  let emit (s : ℕ × List ℕ) : Option ℕ :=
+    let new := (WPrefix e s.1).filter (fun x => x ∉ s.2)
+    new.head?
+  unfolds emit next (0, [])
+
+lemma WStream_base (e n x : ℕ) (h : Stream'.get (WStream e) n = some x) :
+    ∃ s, x ∈ PhiNewList e s := by
+  simp [WStream] at h
+  sorry
+
+
+
+partial def WS2Advance (e stage : ℕ) (seen : List ℕ) : Option (ℕ × ℕ × List ℕ) :=
+  match (WPrefix e stage).filter (fun x => x ∉ seen) with
+  | []      => WS2Advance e (stage + 1) seen
+  | List.cons x _  => some (stage, x, seen ++ [x])
+
+def WS2Next (e : ℕ) (s : ℕ × List ℕ) : Option (ℕ × ℕ × List ℕ) :=
+    WS2Advance e s.1 s.2
+
+def WS2Loop (e i : ℕ) (s : ℕ × List ℕ) : Option (ℕ × ℕ) :=
+      match i with
+      | 0 =>
+        match WS2Next e s with
+        | some (stage, x, _) => some (stage, x)
+        | Option.none => none
+      | i + 1 =>
+        match WS2Next e s with
+        | some (stage, _, seen') => WS2Loop e i (stage, seen')
+        | Option.none => none
+
+/- Emits pairs (s, x), where x enters W e at stage s -/
+def WStream2 (e : ℕ) : ℕ → Option (ℕ × ℕ) :=
+  fun n => WS2Loop e n (0, [])
+ 
+
+lemma WStream_base2 (e n s x : ℕ) (h : Stream'.get (WStream2 e) n = some (s, x)) :
+    x ∈ PhiNewList e s := by
+  simp [WStream2, Stream'.get] at h
+  unfold WS2Loop at h
+  simp [WS2Next] at h
+  induction' n with n ih
+  sorry
+  sorry
+
+partial def WStream2 (e : ℕ) : ℕ → Option (ℕ × ℕ) :=
+  let rec advance (stage : ℕ) (seen : List ℕ) : Option (ℕ × ℕ × List ℕ) :=
+      match (WPrefix e stage).filter (fun x => x ∉ seen) with
+      | []      => advance (stage + 1) seen
+      | List.cons x _  => some (stage, x, seen ++ [x])
+
+  let next (s : ℕ × List ℕ) : Option (ℕ × ℕ × List ℕ) := advance s.1 s.2
+  
+  let rec loop (i : ℕ) (s : ℕ × List ℕ) : Option (ℕ × ℕ) :=
+      match i with
+      | 0 =>
+        match next s with
+        | some (stage, x, _) => some (stage, x)
+        | Option.none => none
+      | i + 1 =>
+        match next s with
+        | some (stage, _, seen') => loop i (stage, seen')
+        | Option.none => none
+  
+  fun n => loop n (0, [])
+ 
+
+
+-- due to Mario Carneiro
+def PrefixUnionStage : (ℕ → List ℕ) → WSeq ℕ :=
+  Seq.corec fun f =>
+    match f 0 with
+    | [] => some (Option.none, fun n => f (n+1))
+    | .cons a _ => some (some a, fun n => (f n).tail)
+
+/- This tracks what happens at each stage, emitting 'none' when no elements halt-/
+def Wenum (e : ℕ) : WSeq ℕ := PrefixUnionStage (WPrefix e)
+
+def W_seq_stream (e : ℕ) : Stream'.Seq ℕ :=
+  ⟨W_stream e 0 [], by
+    intro n h
+    apply W_stream_end at h
+    apply h
+    simp
+  ⟩
+
+partial def WEnum (e : ℕ) : WSeq ℕ :=
+  Seq.corec (fun (state : ℕ × List ℕ) =>
+    let (s, buffer) := state
+    match buffer with
+    | []   =>
+      match PhiNewList e s with
+      | []      => Option.none  -- diverge if no new element at this stage
+      | .cons a tail! => some (a, (s + 1, tail!))
+    | .cons a tail! => some (a, (s, tail!))
+  ) (0, [])
+
+
+/- W_seq skips 'none' when there is a next element-/
+partial def W_seq (e : ℕ) : WSeq ℕ :=
+  Seq.corec (fun (state : ℕ × List ℕ) =>
+    let (s, remaining) := state
+    match remaining with
+    | []   =>
+      let new := PhiNew e s
+      match new with
+      | []      => Option.none  -- diverge if no new element at this stage
+      | .cons a tail! => some (a, (s + 1, tail!))
+    | .cons a tail! => some (a, (s, tail!))
+  ) (0, [])
+
+lemma WPrefix_true (e s n : ℕ) :
+  n ∈ (WPrefix e s) ↔ n ∈ W_seq_stream e := by
+  rw [splitAt.eq_def]
+  ext i a
+  simp only [List.get_ofFn]
+  induction' h : (WPrefix e s).length with n ih generalizing i
+  · have h1 : (WPrefix e s) = [] := by exact List.eq_nil_iff_length_eq_zero.mpr h
+    simp [h1]
+  · by_cases h2 : i ≤ n
+
+-- the below was all built when W_seq was a Stream', not a WSeq.
+
+lemma W_seq_aux_lemma (e k s n: ℕ) (acc : List ℕ) (h : W_seq.aux e k s acc = n):
+    ∃ t, n ∈ WPrefix e t := by
+  sorry
+
+lemma exists_stage_of_mem {e n : ℕ} (h : n ∈ Set.range (W_seq e)) :
+    ∃ s, n ∈ WPrefix e s := by
+  rcases h with ⟨k, hk⟩
+  suffices aux : ∀ (k : ℕ), W_seq e k = n → ∃ s, n ∈ WPrefix e s by
+      exact aux k hk
+  intro l
+  induction l using Nat.strong_induction_on with
+  | h l ih =>
+    intro h
+    unfold W_seq at h
+    exact W_seq_aux_lemma e l 0 n [] h
+
+
+lemma W_seq_mem_iff (e n : ℕ) : n ∈ Set.range (W_seq e) ↔ ∃ t, n ∈ WPrefix e t := by
+  constructor
+  · intro h
+    apply exists_stage_of_mem at h
+    exact h
+  · intro h
+    obtain ⟨s, h⟩ := h
+
+
+lemma mem_W_seq_iff_halt (e n : ℕ) : n ∈ Set.range (W_seq e) ↔ Phi_halts e n := by
+  constructor
+  · intro h
+    rw [W_seq_mem_iff] at h
+    obtain ⟨t, h⟩ := h
+    refine (phi_halts_stage_exists e n).mpr ?_
+    have h1 : ∃ s, n ∈ W_s e s := by
+      use t
+      simp [W_s_eq_prefix]
+      exact h
+    obtain ⟨s, h1⟩ := h1
+    use s
+    exact (W_s_Phi_s e s n).mp h1
+  · intro h
+    rw [phi_halts_stage_exists] at h
+    obtain ⟨s, h⟩ := h
+    rw [W_seq_mem_iff]
+    use s
+    have h1 : n ∈ W_s e s := by
+      exact (W_s_Phi_s e s n).mpr h
+    rw [W_s_eq_prefix] at h1
+    exact List.mem_dedup.mp h1
+
+theorem W_enum_eq_W (e : ℕ) : W e = Set.range (W_seq e) := by
+  ext n
+  rw [mem_W_phi, ← mem_W_seq_iff_halt]
