@@ -110,7 +110,7 @@ instance (e s n : ℕ) : Decidable (∃ x, x ∈ Phi_s e s n) := by
     | Option.none   => exact isFalse (λ ⟨x, h⟩ => Option.noConfusion h)
   apply instDecidableAnd
 
-/-- ϕₑ,ₛ(n) is decidable -/
+/- ϕₑ,ₛ(n) is decidable -/
 instance (e s n : ℕ): Decidable (Phi_s_halts e s n) := by
   simp [Phi_s_halts, Phi_s]
   have h : Decidable (∃ x, evaln s (ofNatCode e) n = some x) := by
@@ -119,7 +119,7 @@ instance (e s n : ℕ): Decidable (Phi_s_halts e s n) := by
     | Option.none   => exact isFalse (λ ⟨x, h⟩ => Option.noConfusion h)
   apply instDecidableAnd
 
-/-- Wₑ,ₛ = the domain of ϕₑ,ₛ. As all inputs n ≥ s do not halt,
+/- Wₑ,ₛ = the domain of ϕₑ,ₛ. As all inputs n ≥ s do not halt,
 this set is necessarily finite. -/
 def W_s (e s : ℕ) : Finset ℕ :=
   (Finset.range s).filter (Phi_s_halts e s)
@@ -162,7 +162,7 @@ lemma halt_stage_gt_zero (e s n : ℕ) (h : Phi_s_halts e s n) : s > 0 := by
 
 open Primrec
 
-/-- ϕₑ,ₛ is a primitive recursive function -/
+/- ϕₑ,ₛ is a primitive recursive function -/
 lemma phi_s_primrec (e s : ℕ) : Primrec (Phi_s e s) := by
   unfold Phi_s
   have h : Primrec fun (((s, e),n) : (ℕ × ℕ) × ℕ) => evaln s (ofNatCode e) n := by
@@ -204,13 +204,13 @@ lemma phi_s_halts_primrec (e s : ℕ) : PrimrecPred (Phi_s_halts e s) := by
   · refine comp₂ (phi_s_primrec e s) Primrec₂.right
   · refine comp₂ option_some Primrec₂.left
 
-/-- ϕₑ is a partial computable function -/
+/- ϕₑ is a partial computable function -/
 theorem phi_partrec (e : ℕ) : Nat.Partrec (Phi e) := by
   unfold Phi
   rw [Code.exists_code]
   use ofNatCode e
 
-/-- The Wₑ,ₛ are primitive recursive-/
+/- The Wₑ,ₛ are primitive recursive-/
 lemma W_s_Primrec (e s : ℕ) : primrec_set (W_s e s) := by
   simp [primrec_set, W_s]
   use Phi_s_halts e s
@@ -301,14 +301,11 @@ lemma phi_halts_mono_reverse (e s t n : ℕ) (h : s ≤ t) (h1 : Phi_s_diverges 
   rw [not_not, not_not]
   exact fun h1 ↦ phi_halts_mono e s t n h h1
 
-/-- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
+/- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
 def runtime (e n : ℕ) : Part ℕ :=
   rfindOpt (fun s => if (Phi_s e (s) n).isSome then some s else Option.none)
 
-/- Statements involving runtime can appear to have off-by-one errors.
-This is because if x has runtime s, x ∉ W_{e,s} but instead x ∈ W_{e, s+1}. -/
-
-/-- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
+/- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
 lemma runtime_is_min (e r n : ℕ) : (r ∈ (runtime e n)) ↔
     Phi_s_halts e (r) n ∧ (∀ (t : ℕ), t < r → Phi_s_diverges e t n) := by
   constructor
@@ -339,7 +336,7 @@ lemma runtime_is_min (e r n : ℕ) : (r ∈ (runtime e n)) ↔
         exact Option.eq_none_iff_forall_ne_some.mpr hm
     · exact h1
 
-/-- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
+/- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
 lemma phi_halts_stage_exists (e n : ℕ) : Phi_halts e n ↔ ∃ s, Phi_s_halts e s n := by
   unfold Phi_s_halts Phi_halts Phi_s Phi
   simp [evaln_complete]
@@ -364,7 +361,6 @@ lemma phi_halts_stage_exists (e n : ℕ) : Phi_halts e n ↔ ∃ s, Phi_s_halts 
   · intro ⟨s, ⟨⟨h, ⟨y, ⟨hys, h1⟩⟩⟩, ⟨x, h2⟩⟩⟩
     use x
     use s
-
 
 /- ϕₑ(n)↓ iff there is a *least* stage s at which ϕₑ,ₛ(n)↓ -/
 lemma phi_halts_runtime_exists (e n : ℕ) : Phi_halts e n ↔ ∃ r, r ∈ runtime e n := by
@@ -437,8 +433,8 @@ lemma W_s_mono_reverse (e s t : ℕ) (h : t ≤ s) : (W_s e t) ⊆ (W_s e s) := 
     · exact h
     · exact h2
 
-/- Membership in some W_{e,s} implies runtime t exists, and membership in W_{e, t}-/
-lemma Ws_runtime (e s n : ℕ) (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n ∧ n ∈ W_s e (r+1) := by
+/- Membership in some W_{e,s} implies runtime r exists, and membership in W_{e, r+1}-/
+lemma Ws_runtime (e s n : ℕ) (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n ∧ n ∈ W_s e r := by
   simp [W_s] at h
   obtain ⟨h, h1⟩ := h
   have h2 : ∃ s, Phi_s_halts e s n := by exact Exists.intro s h1
@@ -453,10 +449,7 @@ lemma Ws_runtime (e s n : ℕ) (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n �
     constructor
     · apply halt_input_bound at h2
       linarith
-    · apply phi_halts_mono e r (r+1) n
-      · linarith
-      · exact h2
-
+    · exact h2
 
 /- Wₑ,ₛ ⊆ Wₑ  -/
 lemma W_s_subset_W (e s : ℕ) : (W_s e s).toSet ⊆ W e := by
@@ -486,5 +479,3 @@ lemma W_eq_union_W_s (e : ℕ) : W e = ⋃ (s : ℕ), W_s e s := by
 ext x
 rw [W_mem_iff_W_s]
 simp
-
-#min_imports

@@ -9,11 +9,9 @@ import Mathlib.Order.Preorder.Finite
 import Mathlib.Data.Set.Finite.Lattice
 import Mathlib.Data.Set.Card
 
-/-
-# Wₑ as a sequence
+/- # Wₑ as a sequence
 This file builds W_seq, which enumerates the elements n of W_e
-in the order in which ϕ_e(n) halts
--/
+in the order in which ϕ_e(n) halts -/
 
 namespace Computability
 
@@ -21,21 +19,24 @@ open Nat
 open Nat.Partrec
 open Nat.Partrec.Code
 
-/- The elements whose computations first halt at stage s, in increasing order.
- Note they are not in W_s! -/
+/- The elements whose computations first halt at stage s, in increasing order. By definition,
+these elements are less than s. -/
 def PhiNewList (e s : ℕ) : List ℕ :=
-  (List.range (s+1)).filter (λ n => (Phi_s_halts e (s+1) n ∧ ¬ Phi_s_halts e s n))
+  (List.range s).filter (λ n => (Phi_s_halts e s n ∧ ¬ Phi_s_halts e (s-1) n))
 
 def PhiNew (e s : ℕ) : Finset ℕ := (PhiNewList e s).toFinset
 
+lemma PhiNewList_zero (e : ℕ) : PhiNewList e 0 = ∅ := by
+  simp [PhiNewList]
+
+/- A helper lemma for moving between the list and set forms-/
 lemma PhiNewList_mem (e s x : ℕ) : x ∈ PhiNewList e s ↔ x ∈ PhiNew e s := by
   constructor
   · simp [PhiNewList, PhiNew]
   · simp [PhiNew]
 
-
-/- The elements halting at stage s are exactly W_{e, s+1} \ W_{e, s} -/
-lemma PhiNew_eq_Ws_diff (e s : ℕ) : (PhiNew e s) = (W_s e (s+1)) \ (W_s e s) := by
+/-- The elements newly halting at stage s are exactly W_{e, s} \ W_{e, s-1} -/
+lemma PhiNew_eq_Ws_diff (e s : ℕ) : (PhiNew e s) = (W_s e s) \ (W_s e (s-1)) := by
   simp [PhiNew, W_s]
   apply subset_antisymm
   · intro x
@@ -44,8 +45,10 @@ lemma PhiNew_eq_Ws_diff (e s : ℕ) : (PhiNew e s) = (W_s e (s+1)) \ (W_s e s) :
     simp [PhiNewList] at h
     constructor
     · constructor
-      · exact h.left
-      · exact h.right.left
+      · linarith
+      · apply phi_halts_mono e s
+        · linarith
+        · exact h.right.left
     · intro h1
       exact h.right.right
   · intro x
@@ -64,19 +67,21 @@ lemma PhiNew_eq_Ws_diff (e s : ℕ) : (PhiNew e s) = (W_s e (s+1)) \ (W_s e s) :
           exact h3
         · exact h3
 
-
 /- Elements never enter twice - the PhiNew are disjoint -/
-lemma PhiNew_disjoint_gt (e s t : ℕ) (h : s>t) :
+lemma PhiNew_disjoint_gt (e s t : ℕ) (h : s > t) :
     Disjoint (PhiNew e s) (PhiNew e t) := by
   rw [Finset.disjoint_iff_ne]
   simp [PhiNew, PhiNewList]
   intro a _ _ h1 b _ h2 _
-  contrapose h2
-  simp at h2
-  rw [h2] at h1
-  apply phi_halts_mono_reverse e
-  · exact h
-  · exact h1
+  contrapose h1
+  simp
+  simp at h1
+  simp [← h1] at h2
+  apply phi_halts_mono e t
+  · cases' s with s
+    · tauto
+    · exact le_sub_one_of_lt h
+  · exact h2
 
 lemma PhiNew_pairwise_disjoint (e : ℕ) :
   Set.PairwiseDisjoint (Set.univ : Set ℕ) (PhiNew e) := by
@@ -87,21 +92,20 @@ lemma PhiNew_pairwise_disjoint (e : ℕ) :
   · exact PhiNew_disjoint_gt e s t h
 
 /- If x is new at stage s, it is not in W_s (elements entering *before* s)-/
-lemma PhiNew_is_new (e s : ℕ) : (PhiNew e s) ∩ (W_s e s) = ∅ := by
+lemma PhiNew_is_new (e s : ℕ) : (PhiNew e s) ∩ (W_s e (s-1)) = ∅ := by
   rw [PhiNew_eq_Ws_diff]
   simp
 
-/- W_{e, s+1} is exactly W_{e, s} and the new elements at stage s.
-Sometimes useful to work with W_{e,s} instead of W_{e, s+1} -/
-lemma Ws_plus_one_eq (e s : ℕ) : W_s e (s+1) = (W_s e s) ∪ (PhiNew e s) := by
+/- W_{e, s+1} is exactly W_{e, s} and the new elements at stage s+1. -/
+lemma Ws_plus_one_eq (e s : ℕ) : W_s e (s+1) = (W_s e s) ∪ (PhiNew e (s+1)) := by
     rw [PhiNew_eq_Ws_diff]
     simp
     apply W_s_mono e s (s+1)
     simp
 
-lemma Ws_eq (e s : ℕ) (h : s > 0) : W_s e s = (W_s e (s-1)) ∪ (PhiNew e (s-1)) := by
-    have h1 : s - 1 + 1 = s := by exact Nat.sub_add_cancel h
-    rw [PhiNew_eq_Ws_diff, h1]
+/- It is sometimes useful to work with W_{e,s} instead of W_{e, s+1} -/
+lemma Ws_eq (e s : ℕ) : W_s e s = (W_s e (s-1)) ∪ (PhiNew e s) := by
+    rw [PhiNew_eq_Ws_diff]
     simp
     apply W_s_mono
     simp
@@ -115,27 +119,31 @@ lemma PhiNew_runtime_iff (e x r : ℕ) : x ∈ PhiNew e r ↔ r ∈ runtime e x 
     constructor
     · exact h.right.left
     · intro t h1
-      apply phi_halts_mono_reverse
-      · exact h1
+      apply phi_halts_mono_reverse e t (r-1)
+      · exact le_sub_one_of_lt h1
       · exact h.right.right
   · intro h
     rw [runtime_is_min] at h
     rw [PhiNew_eq_Ws_diff]
     simp [W_s]
     have h1 : x < r + 1 := by
-      apply halt_input_bound
-      exact h.left
+      apply halt_input_bound e
+      apply phi_halts_mono e r (r+1)
+      · linarith
+      · exact h.left
     constructor
     · constructor
-      · exact h1
+      · apply halt_input_bound e
+        exact h.left
       · exact h.left
     · intro h2
       apply Nat.ne_zero_of_lt at h2
-      have h3 : r - 1 + 1 = r := by exact succ_pred_eq_of_ne_zero h2
-      rw [← Phi_s_diverges]
-      rw [← h3]
-      apply h.right
-      exact Nat.sub_one_lt h2
+      cases' r with r
+      · tauto
+      · simp
+        rw [← Phi_s_diverges]
+        apply h.right
+        linarith
 
 /- W_e can be created as a disjoint union of new elements-/
 lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (PhiNew e s) := by
@@ -155,7 +163,7 @@ lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (PhiNew e s) := by
     obtain ⟨s, h⟩ := h
     rw [PhiNew_eq_Ws_diff] at h
     simp
-    use s+1
+    use s
     simp at h
     exact h.left
 
@@ -163,33 +171,38 @@ lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (PhiNew e s) := by
 lemma WsNew_stabilizes_Ws_stabilizes (e t : ℕ) (h : ∀ s ≥ t, PhiNew e s = ∅) :
     ∀ s ≥ t, W_s e s = W_s e t := by
   have h1 : ∀ s ≥ t, (W_s e (s+1)) = (W_s e s) := by
-    intro s h2
-    apply h at h2
-    simp [Ws_plus_one_eq, h2]
-  intro s h3
+    intro s h1
+    rw [Ws_eq]
+    simp
+    have h2 : PhiNew e (s+1) = ∅ := by
+      apply h
+      linarith
+    rw [h2]
+    simp
+  intro s h2
   induction' s using Nat.strong_induction_on with s ih
-  by_cases h4 : s = t
-  · simp [h4]
-  · have h5 : s-1 ≥ t := by
+  by_cases h3 : s = t
+  · simp [h3]
+  · have h4 : s-1 ≥ t := by
       refine le_sub_one_of_lt ?_
-      exact Nat.lt_of_le_of_ne h3 fun a ↦ h4 (id (Eq.symm a))
-    have h6 : (W_s e (s-1)) = (W_s e t) := by
+      exact Nat.lt_of_le_of_ne h2 fun a ↦ h3 (id (Eq.symm a))
+    have h5 : (W_s e (s-1)) = (W_s e t) := by
       apply ih (s-1)
       · apply Nat.sub_one_lt
         cases t
         · tauto
         · linarith
-      exact h5
-    rw [← h6]
-    have h7 : W_s e ((s - 1) + 1) = (W_s e (s-1)) := by
-      exact h1 (s - 1) h5
-    have h8 : s - 1 + 1 = s := by
+      exact h4
+    rw [← h5]
+    have h6 : W_s e ((s - 1) + 1) = (W_s e (s-1)) := by
+      exact h1 (s - 1) h4
+    have h7 : s - 1 + 1 = s := by
       refine Nat.sub_add_cancel ?_
       cases t
-      · exact one_le_iff_ne_zero.mpr h4
-      · exact one_le_of_lt h3
-    rw [h8] at h7
-    exact h7
+      · exact one_le_iff_ne_zero.mpr h3
+      · exact one_le_of_lt h2
+    rw [h7] at h6
+    exact h6
 
 /- A lemma for splitting up a union over the naturals.
 Probably something close is in Mathlib already!-/
@@ -216,18 +229,16 @@ lemma Union_split (t : ℕ) (p : ℕ → Set ℕ) :
 W_e is finite
 W_e = some W_{e, s}
 Eventually there are no new elements -/
-lemma PhiNew_stabilizes_implies_We_finite (e t : ℕ) (h : ∀ s ≥ t, PhiNew e s = ∅) :
+lemma PhiNew_stabilizes_implies_We_finite (e t : ℕ) (h : ∀ s > t, PhiNew e s = ∅) :
     (W e).Finite := by
   rw [We_eq_union_WsNew, Set.finite_iUnion_iff]
   · simp
-    apply Set.Finite.subset (Set.finite_lt_nat t)
+    apply Set.Finite.subset (Set.finite_le_nat t)
     simp
     intro s h1
     contrapose h1
     simp at h1
-    apply h at h1
-    rw [h1]
-    simp
+    simp [h, h1]
   · simp
     intro i j h1
     apply PhiNew_pairwise_disjoint
@@ -236,25 +247,23 @@ lemma PhiNew_stabilizes_implies_We_finite (e t : ℕ) (h : ∀ s ≥ t, PhiNew e
     simp
     exact h1
 
-lemma PhiNew_stabilizes_implies_We_eq_Ws (e t : ℕ) (h : ∀ s ≥ t, PhiNew e s = ∅) :
+lemma PhiNew_stabilizes_implies_We_eq_Ws (e t : ℕ) (h : ∀ s > t, PhiNew e s = ∅) :
     W e = W_s e t := by
   rw [We_eq_union_WsNew]
   apply subset_antisymm
   · intro x h1
     simp at h1
-    obtain ⟨i, h1⟩ := h1
-    have h2 : i < t := by
+    obtain ⟨r, h1⟩ := h1
+    have h2 : r ≤ t := by
       contrapose h1
       simp at h1
       apply h at h1
       rw [h1]
       simp
-    have h3 : x ∈ W_s e (i+1) := by
-      rw [Ws_plus_one_eq]
-      simp
-      right
-      exact h1
-    apply W_s_mono e (i+1)
+    have h3 : x ∈ W_s e r := by
+      rw [Ws_eq]
+      exact Finset.mem_union_right (W_s e (r - 1)) h1
+    apply W_s_mono e r
     · exact h2
     · exact h3
   · intro x h1
@@ -265,7 +274,7 @@ lemma PhiNew_stabilizes_implies_We_eq_Ws (e t : ℕ) (h : ∀ s ≥ t, PhiNew e 
     use r
 
 lemma We_finite_implies_Ws_stabilizes (e : ℕ) (h : (W e).Finite) :
-    ∃ t, ∀ s ≥ t, PhiNew e s = ∅ := by
+    ∃ t, ∀ s > t, PhiNew e s = ∅ := by
   rw [We_eq_union_WsNew, Set.finite_iUnion_iff] at h
   simp at h
   have h1 :  ∃ P : Finset ℕ, ∀ n, n ∈ P ↔ n ∈ {i | (PhiNew e i).Nonempty} := by
@@ -278,7 +287,7 @@ lemma We_finite_implies_Ws_stabilizes (e : ℕ) (h : (W e).Finite) :
       simp at h1
       apply h1
     · let N := Finset.max' P (Finset.nonempty_iff_ne_empty.mpr h2)
-      use N+1
+      use N
       intro s h3
       contrapose h3
       simp
@@ -298,7 +307,7 @@ lemma We_finite_implies_Ws_stabilizes (e : ℕ) (h : (W e).Finite) :
     exact h1
 
 lemma We_finite_iff_Ws_stabilizes (e : ℕ) :
-    (W e).Finite ↔ (∃ t, ∀ s ≥ t, PhiNew e s = ∅) := by
+    (W e).Finite ↔ (∃ t, ∀ s > t, PhiNew e s = ∅) := by
   constructor
   · apply We_finite_implies_Ws_stabilizes e
   · intro ⟨t, h⟩
@@ -316,27 +325,25 @@ lemma We_finite_iff_We_eq_Ws (e : ℕ) : (W e).Finite ↔ ∃ s, W e = W_s e s :
     rw [h]
     simp
 
-
 /- x appears as a new element at its runtime -/
 lemma PhiNew_runtime (y e s : ℕ) : y ∈ PhiNew e s ↔ s ∈ runtime e y := by
   simp [runtime, rfindOpt]
   constructor
   · simp [PhiNew, PhiNewList, W_s]
-    intro h1 h2 h3
+    intro h h1 h2
     constructor
     · constructor
-      · exact Option.isSome_iff_exists.mpr h2
-      · have h4 : Phi_s_halts e s y → y < s := by
+      · exact Option.isSome_iff_exists.mpr h1
+      · intro m hm
+        have h3 : Phi_s_halts e s y → y < s := by
           apply halt_input_bound
-        intro m hm
-        apply phi_halts_mono_reverse e (m+1) at h3
-        · unfold Phi_s_diverges Phi_s_halts at h3
-          push_neg at h3
-          exact Option.eq_none_iff_forall_ne_some.mpr h3
-        · exact hm
-    exact Option.isSome_iff_exists.mpr h2
+        apply phi_halts_mono_reverse e m at h2
+        · unfold Phi_s_diverges Phi_s_halts at h2
+          push_neg at h2
+          exact Option.eq_none_iff_forall_ne_some.mpr h2
+        · exact le_sub_one_of_lt hm
+    exact Option.isSome_iff_exists.mpr h1
   · intro ⟨⟨h, h1⟩, h2⟩
-    clear h2
     apply Option.isSome_iff_exists.mp at h
     simp [PhiNew, PhiNewList]
     constructor
@@ -355,15 +362,12 @@ lemma PhiNew_runtime (y e s : ℕ) : y ∈ PhiNew e s ↔ s ∈ runtime e y := b
         · have h3 : s - 1 < s := by
             exact sub_one_lt h2
           apply h1 at h3
-          rw [sub_one_add_one_eq_of_pos] at h3
-          · rw [Option.eq_none_iff_forall_not_mem] at h3
-            exact h3 y
-          · exact zero_lt_of_ne_zero h2
+          simp [h3]
 
-/- The elements in W_e enumerated before stage s, in the order they appeared -/
+/- The elements in W_e enumerated up to stage s, in the order they appeared -/
 def WPrefix (e : ℕ) : ℕ → List ℕ
 | 0     => []
-| s + 1 => (WPrefix e s) ++ (PhiNewList e s)
+| s + 1 => (WPrefix e s) ++ (PhiNewList e (s+1))
 
 -- flatten PhiNewList e t from t=0 to t=s?
 
@@ -470,9 +474,7 @@ lemma Wenum_mem (e n x: ℕ) (h : WSeq.get? (Wenum e) n = some x) : ∃ s, x ∈
   simp [Wenum, PrefixUnionStage] at h
   induction' n with n ih
   · simp [WSeq.get?] at h
-
     cases' WPrefix e 0 with a tail!
-
 
 
   · sorry
@@ -490,7 +492,7 @@ lemma Wenum_mem (e n x: ℕ) (h : WSeq.get? (Wenum e) n = some x) : ∃ s, x ∈
 lemma inf_inc_sigma01_seq_is_delta01 (e : ℕ) (h1 : (W e).Infinite)
     (h2 : ∀ (n : ℕ), W_seq e n < W_seq e (n+1)) :
     Delta01 (W e) := by
-sorry
+  sorry
 
 -- for any given x, ∃ n x < W_enum n (lest W e not be increasing and infinite)
 -- if ∃ m < n x = W_enum m, then x ∈ W e
