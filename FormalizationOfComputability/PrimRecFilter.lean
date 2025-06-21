@@ -41,16 +41,23 @@ lemma primrec_bounded_exist (f : ℕ → Prop) [DecidablePred f] (hf1 : PrimrecP
   have h1 : (λ n => decide (∃ x < n, f x)) =
             (λ n => decide ((List.range (n)).filter (fun x => f x)≠[])) := by simp
   simp [PrimrecPred, h1]
-  apply Primrec.ite
-  · apply PrimrecPred.not
-    apply PrimrecRel.comp
+  apply PrimrecPred.not
+  apply PrimrecRel.comp
+  · exact Primrec.eq
+  · exact primrec_filter f hf1
+  · exact Primrec.const []
+
+lemma primrec_bounded_forall (f : ℕ → Prop) [DecidablePred f] (hf1 : PrimrecPred f) :
+    PrimrecPred λ n => ∀ x < n, f x := by
+  have h1 : (λ n => decide (∀ x < n, f x)) =
+            (λ n => decide ((List.range n).filter (fun x => f x) = List.range n)) := by simp
+  simp [PrimrecPred, h1]
+  · apply PrimrecRel.comp
     · exact Primrec.eq
     · exact primrec_filter f hf1
-    · exact Primrec.const []
-  · exact Primrec.const true
-  · exact Primrec.const false
+    · exact list_range
 
-lemma primrec_filter2 (f : ℕ → ℕ → Prop) (s : ℕ) [∀ y, DecidablePred (f y)] (hf : PrimrecRel f) :
+lemma primrec_filter₂ (f : ℕ → ℕ → Prop) (s : ℕ) [∀ y, DecidablePred (f y)] (hf : PrimrecRel f) :
     Primrec λ n => ((List.range (s)).filter (fun y => f y n)) := by
   let g (n : ℕ): ℕ → Option Nat := (λ y => (if f y n = True then y else Option.none))
   have h (n : ℕ): (range (s)).filter (fun y => f y n) = filterMap (g n) (List.range s) := by
@@ -62,25 +69,29 @@ lemma primrec_filter2 (f : ℕ → ℕ → Prop) (s : ℕ) [∀ y, DecidablePred
   · exact Primrec.const (range s)
   · apply Primrec.ite
     · simp
-      refine PrimrecRel.comp ?_ ?_ ?_
-      · exact hf
-      · exact snd
-      · exact fst
-    · refine option_some_iff.mpr ?_
-      exact snd
+      exact PrimrecRel.comp hf snd fst
+    · exact option_some_iff.mpr snd
     · exact Primrec.const Option.none
 
-lemma primrec_bounded_exist2 (f : ℕ → ℕ → Prop) (s : ℕ) [∀ y, DecidablePred (f y)]
+lemma primrec_bounded_exist₂ (f : ℕ → ℕ → Prop) (s : ℕ) [∀ y, DecidablePred (f y)]
     (hf : PrimrecRel f) :
     PrimrecPred (λ n => ∃ y < s, (f y n)) := by
   have h1 : (λ n => decide (∃ y < s, f y n)) =
-            (λ n => decide ((List.range (s)).filter (fun y => f y n)≠[])) := by simp
+            (λ n => decide ((List.range s).filter (fun y => f y n) ≠ [])) := by simp
   simp [PrimrecPred, h1]
-  apply Primrec.ite
-  · apply PrimrecPred.not
-    apply PrimrecRel.comp Primrec.eq
-    · apply primrec_filter2
-      exact hf
-    · exact Primrec.const []
-  · exact Primrec.const true
-  · exact Primrec.const false
+  apply PrimrecPred.not
+  apply PrimrecRel.comp Primrec.eq
+  · apply primrec_filter₂
+    exact hf
+  · exact Primrec.const []
+
+lemma primrec_bounded_forall₂ (f : ℕ → ℕ → Prop) (s : ℕ) [∀ y, DecidablePred (f y)]
+    (hf : PrimrecRel f) :
+    PrimrecPred (λ n => ∀ y < s, (f y n)) := by
+  have h1 : (λ n => decide (∀ y < s, f y n)) =
+            (λ n => decide ((List.range s).filter (fun y => f y n) = List.range s)) := by simp
+  simp [PrimrecPred, h1]
+  apply PrimrecRel.comp Primrec.eq
+  · apply primrec_filter₂
+    exact hf
+  · exact Primrec.const (range s)
