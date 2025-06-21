@@ -22,8 +22,7 @@ lemma filter {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
 lemma filter_exists {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
     (hf : PrimrecPred f) : PrimrecPred λ (L : List α) => (∃ a ∈ L, f a) := by
   let g := λ L => List.filter (λ a => f a) L
-  have h (L : List α): ((g L).length ≠ 0) ↔ (∃ a ∈ L, f a) := by
-    simp [g]
+  have h (L : List α): ((g L).length ≠ 0) ↔ (∃ a ∈ L, f a) := by simp [g]
   have h1 : PrimrecPred (λ L => (g L).length ≠ 0) := by
     apply PrimrecPred.not
     apply PrimrecRel.comp Primrec.eq ?_ (const 0)
@@ -34,13 +33,10 @@ lemma filter_exists {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
 lemma filter_forall {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
     (hf : PrimrecPred f) : PrimrecPred λ (L : List α) => (∀ a ∈ L, f a) := by
   let g := λ L => List.filter (λ a => f a) L
-  have h (L : List α): ((g L).length = L.length) ↔ (∀ a ∈ L, f a) := by
-    simp [g]
+  have h (L : List α): ((g L).length = L.length) ↔ (∀ a ∈ L, f a) := by simp [g]
   have h1 : PrimrecPred (λ L => ((g L).length = L.length)) := by
     refine PrimrecRel.comp Primrec.eq ?_ list_length
-    refine comp list_length ?_
-    apply filter
-    exact hf
+    exact comp list_length (filter f hf)
   exact PrimrecPred.of_eq h1 h
 
 /- Bounded existential quantifiers are primitive recursive -/
@@ -52,15 +48,12 @@ lemma bounded_exists (f : ℕ → Prop) [DecidablePred f] (hf : PrimrecPred f) :
   simp
 
 /- Bounded universal quantifiers are primitive recursive -/
-lemma bounded_forall (f : ℕ → Prop) [DecidablePred f] (hf1 : PrimrecPred f) :
+lemma bounded_forall (f : ℕ → Prop) [DecidablePred f] (hf : PrimrecPred f) :
     PrimrecPred λ n => ∀ x < n, f x := by
-  have h : (λ n => decide (∀ x < n, f x)) =
-            (λ n => decide ((range n).filter (fun x => f x) = range n)) := by simp
-  simp [PrimrecPred, h]
-  · apply PrimrecRel.comp
-    · exact Primrec.eq
-    · exact comp (filter f hf1) (list_range)
-    · exact list_range
+  have h : PrimrecPred λ n => (∀ a ∈ (range n), f a) := by
+    apply PrimrecPred.comp (filter_forall f hf) list_range
+  apply PrimrecPred.of_eq h
+  simp
 
 end Primrec
 
@@ -91,8 +84,9 @@ lemma filter {α β} [Primcodable α] [Primcodable β] (f : α → β → Prop)
   let g (b : β) : α → Option α := (λ a => (if f a b = True then a else Option.none))
   have h (b : β) (L : List α): L.filter (fun a => f a b) = filterMap (g b) L := by
     simp [g]
-    symm
-    apply filtermap_filter
+    rw [← List.filterMap_eq_filter]
+    apply filterMap_congr
+    simp [Option.guard]
   simp [h]
   apply listFilterMap
   · exact snd
