@@ -2,6 +2,10 @@
 
 An ongoing effort to formalize computability theory notions involving subsets of ℕ.
 
+**Primitive Recursiveness**
+- Filtering for elements meeting a decidable criterion is primitive recursive
+- Bounded quantifiers are primitive recursive
+
 **Sets**
 - Primitive recursive (PR), computable (Comp), and partial recursive (computably enumerable) (CE) sets are all defined
 -  PR -> Comp -> CE
@@ -12,7 +16,9 @@ An ongoing effort to formalize computability theory notions involving subsets of
 - CE is closed under finite symmetric difference
 
 **ϕ and W**
-- Use functions ϕ_e and enumerable set W_e are defined from Halting.lean
+- Use functions ϕ_e and enumerable sets W_e are defined from Halting.lean
+- Partial versions ϕ_{e, s} and W_{e, s} are defined
+- Primitive recursiveness, partial recursiveness, and computability of the above are defined
 - The runtime of a computatation ϕ_e is defined
 - Basic lemmata about the above are proven
 - W_enum_prefix e s is the list of elements for which ϕ_{e,s} halts, *in the order that they halted*
