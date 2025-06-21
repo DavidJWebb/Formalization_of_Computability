@@ -369,8 +369,6 @@ def WPrefix (e : ℕ) : ℕ → List ℕ
 | 0     => []
 | s + 1 => (WPrefix e s) ++ (PhiNewList e (s+1))
 
--- flatten PhiNewList e t from t=0 to t=s?
-
 open List.Nodup
 
 /- WPrefix e s is exactly W_{e, s} in order of enumeration -/

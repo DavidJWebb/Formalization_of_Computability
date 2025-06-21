@@ -9,7 +9,7 @@ import Mathlib.Tactic.Linarith
 /-
 # ϕₑ and Wₑ
 This file contains the definitions most commonly used by working computability theorists:
-the use functions ϕₑ, the enumerable sets Wₑ, and their coputable
+the use functions ϕₑ, the enumerable sets Wₑ, and their computable
 approximations ϕ_{e, s} and W_{e, s}.
 ## Main results
 
@@ -152,12 +152,16 @@ lemma halt_index_bound (e s n : ℕ) (h : Phi_s_halts e s n) :
   simp [Phi_s_halts, Phi_s] at h
   exact h.left.left
 
-/- A helper lemma - if ϕₑ,ₛ(n)↓, then s > 0 -/
+/- Helper lemmas - ϕ_{e, 0}(n)↑ -/
 lemma halt_stage_gt_zero (e s n : ℕ) (h : Phi_s_halts e s n) : s > 0 := by
   contrapose h
   simp at h
   unfold Phi_s_halts Phi_s
   rw [h]
+  simp
+
+lemma stage_zero_diverges (e n : ℕ) : Phi_s_diverges e 0 n := by
+  unfold Phi_s_diverges Phi_s_halts Phi_s
   simp
 
 open Primrec
@@ -172,7 +176,7 @@ lemma phi_s_primrec (e s : ℕ) : Primrec (Phi_s e s) := by
   apply Primrec.ite ?_ h1 (Primrec.const Option.none)
   · apply PrimrecPred.and ?_ ?_
     · exact PrimrecRel.comp Primrec.nat_lt (Primrec.const e) (Primrec.const s)
-    · apply primrec_bounded_exist2
+    · apply primrec₂.bounded_exists
       simp [PrimrecRel, Primrec₂]
       apply Primrec.ite
       · apply PrimrecRel.comp Primrec.eq
@@ -198,11 +202,10 @@ lemma phi_s_halts_primrec (e s : ℕ) : PrimrecPred (Phi_s_halts e s) := by
   have h1 (n : ℕ) : (decide (∃ x, x ∈ Phi_s e s n)) = (decide (∃ x < s, x ∈ Phi_s e s n)) := by
     simp [h]
   simp [h1]
-  apply primrec_bounded_exist2
-  refine PrimrecRel.comp₂ ?_ ?_ ?_
-  · exact Primrec.eq
-  · refine comp₂ (phi_s_primrec e s) Primrec₂.right
-  · refine comp₂ option_some Primrec₂.left
+  apply primrec₂.bounded_exists
+  refine PrimrecRel.comp₂ Primrec.eq ?_ ?_
+  · exact comp₂ (phi_s_primrec e s) Primrec₂.right
+  · exact comp₂ option_some Primrec₂.left
 
 /- ϕₑ is a partial computable function -/
 theorem phi_partrec (e : ℕ) : Nat.Partrec (Phi e) := by
@@ -406,6 +409,12 @@ exact h
 lemma Ws_gt_zero (e s n : ℕ) : n ∈ W_s e s → s > 0 := by
   rw [W_s_Phi_s]
   apply halt_stage_gt_zero
+
+lemma Ws_zero_empty (e : ℕ) : W_s e 0 = ∅ := by
+  ext n
+  rw [W_s_Phi_s]
+  simp
+  exact stage_zero_diverges e n
 
 /- ϕₑ(x)↓ ↔ x ∈ Wₑ -/
 lemma mem_W_phi (e n : ℕ) : n ∈ W e ↔ Phi_halts e n := by
