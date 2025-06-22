@@ -1,13 +1,32 @@
+/-
+Copyright (c) 2025 David J. Webb. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: David J. Webb
+-/
 import Mathlib.Computability.Primrec
+/-
+# Bounded quantifiers are primitive recursive
+This file contains lemmata for showing bounded existentially and universally quantified
+statements are primitive recursive, as well as the more general version for arbitrary
+primcodable types.
+
+## Main results
+- Filtering for elements from a list that meet a primrec criterion is primrec
+- Checking whether a list has some element meeting a primrec criterion is primrec
+- Checking whether every element of a list meets a primrec criterion is primrec
+- Primitive recursive functions are closed under bounded existential and universal quantifiers
+
+## References
+- [R. I. Soare *Turing Computability - Theory and Applications*] [Soare2016]
+-/
 
 open List
-open Nat
 open Primrec
 
 namespace Primrec
 
 /- Filtering a list for elements that meet a decidable condition is primitive recursive -/
-lemma filter {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
+lemma list_filter {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
 (hf : PrimrecPred f) : Primrec λ L => (filter (fun a => f a) L) := by
   rw [← List.filterMap_eq_filter]
   apply listFilterMap Primrec.id
@@ -22,7 +41,7 @@ lemma filter_exists {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
   apply PrimrecPred.of_eq ?_ h
   apply PrimrecPred.not
   apply PrimrecRel.comp Primrec.eq ?_ (const 0)
-  exact comp list_length (filter f hf)
+  exact comp list_length (list_filter f hf)
 
 /- Checking if every element of a list satisfies a decidable condition is primitive recursive -/
 lemma filter_forall {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
@@ -31,7 +50,7 @@ lemma filter_forall {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
   have h (L : List α): ((g L).length = L.length) ↔ (∀ a ∈ L, f a) := by simp [g]
   apply PrimrecPred.of_eq ?_ h
   refine PrimrecRel.comp Primrec.eq ?_ list_length
-  exact comp list_length (filter f hf)
+  exact comp list_length (list_filter f hf)
 
 /- Bounded existential quantifiers are primitive recursive -/
 lemma bounded_exists (f : ℕ → Prop) [DecidablePred f] (hf : PrimrecPred f) :
@@ -55,7 +74,7 @@ namespace primrec₂
 
 /- If f a b is decidable, then given L : List α and b : β, it is primitive recurisve
 to filter L for elements a with f a b -/
-lemma filter {α β} [Primcodable α] [Primcodable β] (f : α → β → Prop)
+lemma list_filter {α β} [Primcodable α] [Primcodable β] (f : α → β → Prop)
     [DecidableRel f] (hf : PrimrecRel f) :
     Primrec₂ λ (L : List α) => λ b => (L.filter (fun a => f a b)) := by
   let g (b : β) : α → Option α := (λ a => (if f a b = True then a else Option.none))
@@ -87,7 +106,7 @@ lemma filter_exists {α β} [Primcodable α] [Primcodable β] (f : α → β →
   apply Primrec.comp list_length
   refine Primrec₂.comp ?_ snd fst
   apply Primrec₂.swap
-  exact filter f hf
+  exact list_filter f hf
 
 lemma filter_forall {α β} [Primcodable α] [Primcodable β] (f : α → β → Prop)
     [DecidableRel f] (hf : PrimrecRel f) :
@@ -102,7 +121,7 @@ lemma filter_forall {α β} [Primcodable α] [Primcodable β] (f : α → β →
   apply Primrec.comp list_length
   refine Primrec₂.comp ?_ snd fst
   apply Primrec₂.swap
-  exact filter f hf
+  exact list_filter f hf
 
 /- Bounded existential quantifiers are primitive recursive -/
 lemma bounded_exists (f : ℕ → ℕ → Prop) [DecidableRel f]
