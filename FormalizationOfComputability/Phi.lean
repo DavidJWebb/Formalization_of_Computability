@@ -168,25 +168,16 @@ open Primrec
 
 /- ϕₑ,ₛ is a primitive recursive function -/
 lemma phi_s_primrec (e s : ℕ) : Primrec (Phi_s e s) := by
+  have h : Primrec (evaln s (ofNatCode e)) := by
+      apply primrec_evaln.comp (pair (pair (const s) (const (ofNatCode e))) Primrec.id)
   unfold Phi_s
-  have h : Primrec fun (((s, e),n) : (ℕ × ℕ) × ℕ) => evaln s (ofNatCode e) n := by
-    exact primrec_evaln
-  have h1 : Primrec (evaln s (ofNatCode e)) := by
-    exact h.comp (Primrec.pair (Primrec.pair (Primrec.const s) (Primrec.const e)) Primrec.id)
-  apply Primrec.ite ?_ h1 (Primrec.const Option.none)
-  · apply PrimrecPred.and ?_ ?_
-    · exact PrimrecRel.comp Primrec.nat_lt (Primrec.const e) (Primrec.const s)
-    · apply primrec₂.bounded_exists
-      simp [PrimrecRel, Primrec₂]
-      apply Primrec.ite
-      · apply PrimrecRel.comp Primrec.eq
-        · exact Primrec.comp h1 snd
-        · exact option_some_iff.mpr fst
-      · exact Primrec.const true
-      · exact Primrec.const false
+  apply Primrec.ite ?_ h (Primrec.const Option.none)
+  apply PrimrecPred.and (PrimrecRel.comp Primrec.nat_lt (Primrec.const e) (Primrec.const s)) ?_
+  apply PrimrecPred.bounded_exists
+  simp [PrimrecRel, Primrec₂]
+  exact PrimrecRel.comp Primrec.eq (Primrec.comp h snd) (option_some_iff.mpr fst)
 
 lemma phi_s_halts_primrec (e s : ℕ) : PrimrecPred (Phi_s_halts e s) := by
-  unfold Phi_s_halts
   have h (n : ℕ) : (∃ x, Phi_s e s n = some x) ↔ (∃ x < s, Phi_s e s n = some x) := by
     constructor
     · intro ⟨x, h⟩
@@ -198,13 +189,12 @@ lemma phi_s_halts_primrec (e s : ℕ) : PrimrecPred (Phi_s_halts e s) := by
     · intro ⟨x, h⟩
       use x
       exact h.right
+  unfold Phi_s_halts
   simp [PrimrecPred]
-  have h1 (n : ℕ) : (decide (∃ x, x ∈ Phi_s e s n)) = (decide (∃ x < s, x ∈ Phi_s e s n)) := by
-    simp [h]
-  simp [h1]
-  apply primrec₂.bounded_exists
-  refine PrimrecRel.comp₂ Primrec.eq ?_ ?_
-  · exact comp₂ (phi_s_primrec e s) Primrec₂.right
+  simp [h]
+  apply PrimrecPred.bounded_exists
+  apply PrimrecRel.comp₂ Primrec.eq
+  · exact comp₂ (phi_s_primrec e s) (Primrec₂.right)
   · exact comp₂ option_some Primrec₂.left
 
 /- ϕₑ is a partial computable function -/

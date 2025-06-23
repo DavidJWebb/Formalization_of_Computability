@@ -92,12 +92,16 @@ lemma list_filter {α β} [Primcodable α] [Primcodable β] (f : α → β → P
     · exact option_some_iff.mpr snd
     · exact Primrec.const Option.none
 
+end primrec₂
+
+namespace PrimrecRel
+
 lemma filter_exists {α β} [Primcodable α] [Primcodable β] (f : α → β → Prop)
     [DecidableRel f] (hf : PrimrecRel f) :
     PrimrecRel λ (L : List α) => λ b => (∃ a ∈ L, f a b) := by
   let g (b : β) := λ L => List.filter (λ a => f a b) L
   have h (L : List α) (b : β) : (g b L).length ≠ 0 ↔ (∃ a ∈ L, f a b) := by simp [g]
-  apply PrimrecRel.of_eq ?_ h
+  apply of_eq ?_ h
   unfold PrimrecRel Primrec₂
   simp only
   rw [← PrimrecPred]
@@ -106,7 +110,7 @@ lemma filter_exists {α β} [Primcodable α] [Primcodable β] (f : α → β →
   apply Primrec.comp list_length
   refine Primrec₂.comp ?_ snd fst
   apply Primrec₂.swap
-  exact list_filter f hf
+  exact primrec₂.list_filter f hf
 
 lemma filter_forall {α β} [Primcodable α] [Primcodable β] (f : α → β → Prop)
     [DecidableRel f] (hf : PrimrecRel f) :
@@ -121,22 +125,69 @@ lemma filter_forall {α β} [Primcodable α] [Primcodable β] (f : α → β →
   apply Primrec.comp list_length
   refine Primrec₂.comp ?_ snd fst
   apply Primrec₂.swap
-  exact list_filter f hf
+  exact primrec₂.list_filter f hf
 
 /- Bounded existential quantifiers are primitive recursive -/
 lemma bounded_exists (f : ℕ → ℕ → Prop) [DecidableRel f]
-    (hf : PrimrecRel f) : PrimrecRel (λ y => (λ n => (∃ x < n, f x y))) := by
-  have h : PrimrecRel (λ y => (λ n => (∃ x ∈ range n, f x y))) := by
-    apply PrimrecRel.comp (filter_exists f hf) (Primrec.comp list_range snd) fst
+    (hf : PrimrecRel f) : PrimrecRel (λ n => (λ y => (∃ x < n, f x y))) := by
+  have h : PrimrecRel (λ n => (λ y => (∃ x ∈ range n, f x y))) := by
+    apply PrimrecRel.comp (filter_exists f hf) (Primrec.comp list_range fst) snd
   apply PrimrecRel.of_eq h
   simp
 
 /- Bounded universal quantifiers are primitive recursive -/
 lemma bounded_forall (f : ℕ → ℕ → Prop) [DecidableRel f]
-    (hf : PrimrecRel f) : PrimrecRel (λ y => (λ n => (∀ x < n, f x y))) := by
-  have h : PrimrecRel (λ y => (λ n => (∀ x ∈ range n, f x y))) := by
-    apply PrimrecRel.comp (filter_forall f hf) (Primrec.comp list_range snd) fst
+    (hf : PrimrecRel f) : PrimrecRel (λ n => (λ y => (∀ x < n, f x y))) := by
+  have h : PrimrecRel (λ n => (λ y => (∀ x ∈ range n, f x y))) := by
+    apply PrimrecRel.comp (filter_forall f hf) (Primrec.comp list_range fst) snd
   apply PrimrecRel.of_eq h
   simp
 
-end primrec₂
+end PrimrecRel
+
+namespace Primrec
+
+lemma rel_list_filter (f : ℕ → ℕ → Prop) (s : ℕ) [∀ y, DecidablePred (f y)] (hf : PrimrecRel f) :
+    Primrec λ n => ((List.range (s)).filter (fun y => f y n)) := by
+  let g (n : ℕ): ℕ → Option Nat := (λ y => (if f y n = True then y else Option.none))
+  have h (n : ℕ): (range (s)).filter (fun y => f y n) = filterMap (g n) (List.range s) := by
+    simp [g]
+    rw [← List.filterMap_eq_filter]
+    refine filterMap_congr ?_
+    simp [Option.guard]
+  simp [h]
+  apply listFilterMap
+  · exact Primrec.const (range s)
+  · apply Primrec.ite
+    · simp
+      exact PrimrecRel.comp hf snd fst
+    · exact option_some_iff.mpr snd
+    · exact Primrec.const Option.none
+
+end Primrec
+
+namespace PrimrecPred
+
+lemma bounded_exists (f : ℕ → ℕ → Prop) (s : ℕ) [DecidableRel f]
+    (hf : PrimrecRel f) :
+    PrimrecPred (λ n => ∃ y < s, (f y n)) := by
+  have h1 : (λ n => decide (∃ y < s, f y n)) =
+            (λ n => decide ((List.range s).filter (fun y => f y n) ≠ [])) := by simp
+  simp [PrimrecPred, h1]
+  apply PrimrecPred.not
+  apply PrimrecRel.comp Primrec.eq ?_ (const [])
+  apply rel_list_filter
+  exact hf
+
+lemma bounded_forall (f : ℕ → ℕ → Prop) (s : ℕ) [∀ y, DecidablePred (f y)]
+    (hf : PrimrecRel f) :
+    PrimrecPred (λ n => ∀ y < s, (f y n)) := by
+  have h1 : (λ n => decide (∀ y < s, f y n)) =
+            (λ n => decide ((List.range s).filter (fun y => f y n) = List.range s)) := by simp
+  simp [PrimrecPred, h1]
+  apply PrimrecRel.comp Primrec.eq
+  · apply rel_list_filter
+    exact hf
+  · exact Primrec.const (range s)
+
+end PrimrecPred
