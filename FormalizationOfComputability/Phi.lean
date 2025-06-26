@@ -296,15 +296,15 @@ lemma phi_halts_mono_reverse (e s t n : ℕ) (h : s ≤ t) (h1 : Phi_s_diverges 
 
 /- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
 def runtime (e n : ℕ) : Part ℕ :=
-  rfindOpt (fun s => if (Phi_s e (s) n).isSome then some s else Option.none)
+  rfind (fun s => (Phi_s e (s) n).isSome)
 
 /- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
 lemma runtime_is_min (e r n : ℕ) : (r ∈ (runtime e n)) ↔
     Phi_s_halts e (r) n ∧ (∀ (t : ℕ), t < r → Phi_s_diverges e t n) := by
   constructor
   · intro h
-    simp [runtime, rfindOpt] at h
-    obtain ⟨⟨hs, hs2⟩, hs⟩ := h
+    simp [runtime] at h
+    obtain ⟨hs, hs2⟩ := h
     unfold Phi_s_halts
     constructor
     · rw [Option.isSome_iff_exists] at hs
@@ -318,16 +318,14 @@ lemma runtime_is_min (e r n : ℕ) : (r ∈ (runtime e n)) ↔
       simp
   · intro ⟨h1, h2⟩
     apply Option.isSome_iff_exists.mpr at h1
-    simp [runtime, rfindOpt]
+    simp [runtime]
     constructor
-    · constructor
-      · exact h1
-      · intro m hm
-        apply h2 at hm
-        unfold Phi_s_diverges Phi_s_halts at hm
-        push_neg at hm
-        exact Option.eq_none_iff_forall_ne_some.mpr hm
     · exact h1
+    · intro m hm
+      apply h2 at hm
+      unfold Phi_s_diverges Phi_s_halts at hm
+      push_neg at hm
+      exact Option.eq_none_iff_forall_ne_some.mpr hm
 
 /- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
 lemma phi_halts_stage_exists (e n : ℕ) : Phi_halts e n ↔ ∃ s, Phi_s_halts e s n := by
@@ -367,19 +365,13 @@ lemma phi_halts_runtime_exists (e n : ℕ) : Phi_halts e n ↔ ∃ r, r ∈ runt
       exact h
     obtain ⟨y, h1⟩:= h1
     simp [rfindOpt] at h1
-    obtain ⟨t, ⟨⟨h2, h3⟩, h1⟩⟩ := h1
+    obtain ⟨t, ⟨h2, h1⟩⟩ := h1
     have h4 : ∃ y, Phi_s e t n = some y := ⟨y, h1⟩
     apply halt_stage_gt_zero at h4
     rw [gt_iff_lt, lt_iff_add_one_le, zero_add] at h4
     use t
-    simp [runtime, rfindOpt]
-    constructor
-    · constructor
-      · exact h2
-      · intros s h5
-        apply h3 at h5
-        exact h5
-    · exact h2
+    simp [runtime]
+    exact h2
   · intro ⟨r, h⟩
     rw [runtime_is_min] at h
     rw [phi_halts_stage_exists]
