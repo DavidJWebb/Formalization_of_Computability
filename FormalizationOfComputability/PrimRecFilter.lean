@@ -5,9 +5,10 @@ Authors: David J. Webb
 -/
 import Mathlib.Computability.Primrec
 /-
+
 # Bounded quantifiers are primitive recursive
 This file contains lemmata for showing bounded existentially and universally quantified
-statements are primitive recursive, as well as the more general version for arbitrary
+statements are primitive recursive, as well as more general filtering for arbitrary
 primcodable types.
 
 ## Main results
@@ -25,7 +26,7 @@ open Primrec
 
 namespace Primrec
 
-/- Filtering a list for elements that meet a decidable condition is primitive recursive -/
+/- Filtering a list for elements that satisfy a decidable predicate is primitive recursive -/
 lemma list_filter {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
 (hf : PrimrecPred f) : Primrec λ L => (filter (fun a => f a) L) := by
   rw [← List.filterMap_eq_filter]
@@ -33,7 +34,7 @@ lemma list_filter {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
   simp [Primrec₂, Option.guard]
   exact ite (PrimrecPred.comp hf snd) (option_some_iff.mpr snd) (const none)
 
-/- Checking if any element of a list satisfies a decidable condition is primitive recursive -/
+/- Checking if any element of a list satisfies a decidable predicate is primitive recursive -/
 lemma filter_exists {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
     (hf : PrimrecPred f) : PrimrecPred λ (L : List α) => (∃ a ∈ L, f a) := by
   let g := λ L => List.filter (λ a => f a) L
@@ -43,7 +44,7 @@ lemma filter_exists {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
   apply PrimrecRel.comp Primrec.eq ?_ (const 0)
   exact comp list_length (list_filter f hf)
 
-/- Checking if every element of a list satisfies a decidable condition is primitive recursive -/
+/- Checking if every element of a list satisfies a decidable predicate is primitive recursive -/
 lemma filter_forall {α} [Primcodable α] (f : α → Prop) [DecidablePred f]
     (hf : PrimrecPred f) : PrimrecPred λ (L : List α) => (∀ a ∈ L, f a) := by
   let g := λ L => List.filter (λ a => f a) L
