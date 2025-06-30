@@ -11,6 +11,10 @@ import Mathlib.Tactic.Linarith
 This file contains the definitions most commonly used by working computability theorists:
 the use functions ϕₑ, the enumerable sets Wₑ, and their computable
 approximations ϕ_{e, s} and W_{e, s}.
+
+In some sense Phi_s and Phi are merely wrappers for evaln and eval, respectively, modified
+to match common computability theory notation.
+
 ## Main results
 
 ## Notation
