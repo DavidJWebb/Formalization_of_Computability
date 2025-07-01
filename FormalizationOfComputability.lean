@@ -1,3 +1,10 @@
--- This module serves as the root of the `FormalizationOfComputability` library.
--- Import modules here that should be built as part of the library.
-import FormalizationOfComputability.Basic
+import FormalizationOfComputability.CodeDecode
+import FormalizationOfComputability.Cohesive
+import FormalizationOfComputability.List
+import FormalizationOfComputability.Phi
+import FormalizationOfComputability.PhiSeq
+import FormalizationOfComputability.PrimRecFilter
+import FormalizationOfComputability.SetPrimRec1
+import FormalizationOfComputability.Sets
+import FormalizationOfComputability.SpareLemmas
+import FormalizationOfComputability.basic
