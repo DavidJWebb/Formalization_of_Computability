@@ -4,10 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
 import FormalizationOfComputability.Phi
+import FormalizationOfComputability.List
 import Mathlib.Data.WSeq.Basic
 import Mathlib.Order.Preorder.Finite
 import Mathlib.Data.Set.Finite.Lattice
 import Mathlib.Data.Set.Card
+import Mathlib.Data.List.TFAE
 
 /- # Wₑ as a sequence
 This file builds W_seq, which enumerates the elements n of W_e in the order that each ϕ_e(n) halts -/
@@ -17,7 +19,7 @@ namespace Computability
 open Nat
 open Nat.Partrec
 open Nat.Partrec.Code
-open List
+open List --hiding isSome_getElem?
 
 /- The elements whose computations first halt at stage s, in increasing order. By definition,
 these elements are less than s. -/
@@ -225,6 +227,7 @@ W_e is finite
 There is an s such that W_e = W_{e, s}
 -/
 
+/- TODO : Move any implications not needed for lemmas to the TFAE -/
 lemma PhiNew_stabilizes_implies_We_finite (e s : ℕ) (h : ∀ t > s, PhiNew e t = ∅) :
     (W e).Finite := by
   rw [We_eq_union_WsNew, Set.finite_iUnion_iff]
@@ -405,15 +408,13 @@ lemma WPrefix_phi (e n : ℕ) : (∃ s, n ∈ WPrefix e s) ↔ Phi_halts e n := 
   rw [← W_s_Phi_s]
   exact WPrefix_mem e a n
 
-open List.Nodup
-
 /- Elements cannot be enumerated twice-/
 lemma nodup_WPrefix (e s : ℕ) : Nodup (WPrefix e s) := by
   induction' s with s ih
   · unfold WPrefix
     simp
   · simp [WPrefix]
-    apply append
+    apply List.Nodup.append
     · exact ih
     · apply List.Nodup.filter
       exact nodup_range
@@ -437,29 +438,6 @@ lemma WPrefix_mono (e s t : ℕ) (h : s ≤ t) :
       apply List.IsPrefix.trans h2
       simp [WPrefix]
 
-theorem idxOf?_mem {α : Type} [inst : DecidableEq α] {a : α} {n : ℕ} {L : List α}
-    (h : n = List.idxOf? a L) : L[n]? = a := by
-  have := List.of_findIdx?_eq_some h.symm
-  generalize hi : L[n]? = i at this ⊢
-  cases i <;> simp_all
-
-theorem mem_idxOf? {α : Type} [inst : DecidableEq α] {a : α} {n : ℕ} {L : List α}
-    (h : List.Nodup L) (h1 : L[n]? = a) : n = List.idxOf? a L := by
-  have h2 : n < L.length := by
-    exact (isSome_getElem? L n).mp (Option.isSome_of_mem h1)
-  have h3 : L[n] = a := by
-    exact (List.getElem_eq_iff h2).mpr h1
-  rw [List.idxOf?, eq_comm, List.findIdx?_eq_some_iff_findIdx_eq, List.findIdx_eq]
-  constructor
-  · exact h2
-  · constructor
-    · simp [h3]
-    · intro j hjn
-      simp [← h3]
-      rw [List.Nodup.getElem_inj_iff]
-      · apply Nat.ne_of_lt hjn
-      · exact h
-  · exact h2
 
 /- It is often useful to view elements entering one at a time, so there may be a queue
 of elements waiting to enter. This represents the elements still waiting *at* stage s,
@@ -522,25 +500,115 @@ lemma enter_queue_nodup (e s : ℕ) : Nodup (enter_queue e s) := by
   rw [← h] at h1
   exact List.Nodup.of_append_right h1
 
-/- If n is not the head of an queue, then at the next step its index decreases by 1. -/
-lemma enter_queue_dec (e n s : ℕ)
-    (h : n ∈ (enter_queue e s).tail) :
-    List.idxOf n (enter_queue e (s+1)) = List.idxOf n (enter_queue e s) - 1 := by
-  dsimp [enter_queue]
-  simp [List.idxOf_append, h]
-  cases' L : enter_queue e s with a T
+lemma enter_queue_nodup_elements (e s k i n : ℕ) (h : (enter_queue e s)[k]? = some n) (h1 : i ≠ k) :
+    (enter_queue e s)[i]? ≠ some n := by
+  by_contra h3
+  rw [← h] at h3
+  apply List.getElem?_inj at h3
   · tauto
-  · simp [L] at h
-    apply Nat.eq_sub_of_add_eq
-    apply Eq.symm (List.idxOf_cons_ne T ?_)
-    have h2 := enter_queue_nodup e s
-    rw [L] at h2
-    apply List.Nodup.notMem at h2
-    exact Ne.symm (ne_of_mem_of_not_mem h h2)
+  · rw [h] at h3
+    refine List.isSome_getElem?.mp ?_
+    exact Option.isSome_of_mem h3
+  · exact enter_queue_nodup e s
 
-/- If PhiNew stabilizes, then eventually the queue depletes. Indeed iff is true,
-but not proved here. -/
+/- If n is not the head of an queue, then at the next step its index decreases by 1. -/
+lemma enter_queue_dec_stage (e n s : ℕ)
+    (h : n ∈ (enter_queue e s).tail) :
+     List.idxOf? n (enter_queue e (s + 1)) = (List.idxOf? n (enter_queue e s)).map (· - 1) := by
+  dsimp [enter_queue]
+  simp [List.idxOf?_append, h]
+  cases' hL : enter_queue e s with a T
+  · tauto
+  · simp
+    rw [index_tail] at h
+    obtain ⟨k, ⟨h, h1⟩⟩ := h
+    rw [← mem_idxOf_iff] at h1
+    · rw [hL] at h1
+      rw [← h1]
+      simp
+      have h3 : some k = idxOf? n ([a] ++ T) := by exact h1
+      rw [List.idxOf?_append] at h3
+      have h4 : n ∈ (a :: T).tail := by
+        apply idxOf?_mem at h1
+        apply index_tail.mpr
+        use k
+      have h5 : n ≠ a := by
+        contrapose h
+        simp at h
+        simp
+        have h2 := idxOf?_length h1
+        apply List.getElem?_inj h2
+        · rw [← hL]
+          exact enter_queue_nodup e s
+        · rw [idxOf?_mem h1]
+          simp [h]
+      apply index_tail_minus_one at h4
+      simp [h5, ← h1] at h4
+      exact h4
+    · have h3 := enter_queue_nodup e s
+      intro i hik
+      apply enter_queue_nodup_elements e s k i n h1
+      linarith
 
+/- If n is at index k in the sth queue, then for l≤k, it has index k-l in the (s+l)th queue -/
+lemma enter_queue_dec (e n s k l : ℕ) (h : n ∈ enter_queue e s)
+    (h1 : List.idxOf? n (enter_queue e s) = some k) (h2 : l ≤ k) :
+    n ∈ enter_queue e (s+l) ∧ List.idxOf? n (enter_queue e (s+l)) = some (k - l) := by
+  have h3 := h
+  apply ne_nil_of_mem at h
+  apply ne_nil_iff_exists_cons.mp at h
+  obtain ⟨a, ⟨T, h⟩⟩ := h
+  rw [h] at h1
+  revert n
+  induction' l with l ih
+  · simp
+    intro n h1 h3
+    constructor
+    · simp [h1, h2]
+    · simp [h, h3]
+  · intro n hn hk
+    have ⟨h3, h4⟩ : n ∈ enter_queue e (s + l) ∧ idxOf? n (enter_queue e (s + l)) = some (k - l) := by
+      apply ih (le_of_succ_le h2)
+      · exact hn
+      · exact hk
+    have h5 : n ∈ (enter_queue e (s + l)).tail := by
+      rw [index_tail]
+      use k-l
+      constructor
+      · exact Nat.le_sub_of_add_le' h2
+      · exact idxOf?_mem h4.symm
+    constructor
+    · simp [enter_queue, h5]
+    · apply enter_queue_dec_stage at h5
+      simp [← add_assoc, h5]
+      use k-l
+      constructor
+      · exact h4
+      · rfl
+
+/- If an element is in a queue, it is eventually enumerated. -/
+lemma enter_queue_enum (e s n k : ℕ) (h : n ∈ (enter_queue e s))
+    (h1 : List.idxOf? n (enter_queue e s) = some k) :
+    (enter_queue e (s + k)).head? = n := by
+  have h2 : k ≤ k := by rfl
+  apply enter_queue_dec at h1
+  · apply h1 at h2
+    simp at h2
+    obtain ⟨h2, h3⟩ := h2
+    rw [eq_comm, index_head, ← mem_idxOf_iff]
+    · exact id (Eq.symm h3)
+    · tauto
+  · exact h
+
+/- If an element is in a queue, it eventually leaves. -/
+lemma enter_queue_exit (e s n k : ℕ) (h : n ∈ (enter_queue e s))
+    (h1 : List.idxOf? n (enter_queue e s) = some k) :
+    ∀ t ≥ s + k + 1, n ∉ enter_queue e t := by
+  intro t ht
+  sorry -- at stage s+k, n is the head, so it leaves at stage s+k+1. It is never added again
+
+/- If PhiNew stabilizes, then eventually the queue depletes.
+Indeed iff is true, see TFAE below. -/
 lemma queue_depletes (e s : ℕ) (h : ∀ t > s, PhiNew e t = ∅) :
     ∃ s₁, ∀ t > s₁, enter_queue e t = [] := by
   sorry
@@ -583,8 +651,8 @@ lemma Wenum_finite_iff (e : ℕ) : (W e).Finite ↔ ∃ s, ∀ t > s, Wenum e t 
       simp [h2]
 
 
-lemma Phi_halts_new_element (e n : ℕ) : Phi_halts e n ↔ ∃ s, new_element e s = n := by
-  simp [new_element]
+lemma Phi_halts_new_element (e n : ℕ) : Phi_halts e n ↔ ↑n ∈ Wenum e := by
+  simp [Wenum, new_element]
   rw [← enter_queue_mem]
   constructor
   · intro ⟨s, h⟩
@@ -597,7 +665,7 @@ lemma Phi_halts_new_element (e n : ℕ) : Phi_halts e n ↔ ∃ s, new_element e
     · sorry
   · intro ⟨s, h⟩
     use s
-    exact List.mem_of_mem_head? h
+    sorry
 
 
 
@@ -631,12 +699,24 @@ lemma kth_mem (e n : ℕ) : (Phi_halts e n) ↔
 
 
 
+theorem We_finite_TFAE (e : ℕ) :
+  [
+    (W e).Finite,
+    ∃ s, ∀ t > s, PhiNewList e t = [],
+    ∃ s, ∀ t > s, W_s e t = W_s e s,
+    ∃ s, W e = W_s e s,
+    ∃ s, ∀ t > s, enter_queue e t = [],
+    ∃ s, ∀ t > s, Wenum e t = Option.none
+  ].TFAE := by
+  sorry
+
+
 
 
 
 
 lemma inf_inc_sigma01_seq_is_delta01 (e : ℕ) (h1 : (W e).Infinite)
-    (h2 : ∀ (n : ℕ), W_seq e n < W_seq e (n+1)) :
+    (h2 : ∀ (n : ℕ), Wenum e n < Wenum e (n+1)) : -- this needs fixing, Wenum has gaps now!
     Delta01 (W e) := by
   sorry
 
