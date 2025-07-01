@@ -10,17 +10,18 @@ import Mathlib.Data.Nat.Find
 open List
 open Nat
 
-theorem idxOf?_mem {α : Type} [inst : DecidableEq α] {a : α} {n : ℕ} {L : List α}
+/- TODO : rename these with getElem? instead of mem -/
+theorem idxOf?_getElem? {α : Type} [inst : DecidableEq α] {a : α} {n : ℕ} {L : List α}
     (h : n = List.idxOf? a L) : L[n]? = a := by
   have := List.of_findIdx?_eq_some h.symm
   generalize hi : L[n]? = i at this ⊢
   cases i <;> simp_all
 
 /- this can be strengthened to iff h -/
-theorem mem_idxOf_iff {α : Type} [inst : DecidableEq α] {a : α} {n : ℕ} {L : List α}
+theorem idxOf?_getElem?_iff {α : Type} [inst : DecidableEq α] {a : α} {n : ℕ} {L : List α}
     (h : ∀ i < n, L[i]? ≠ a) : n = List.idxOf? a L ↔ L[n]? = a := by
   constructor
-  · exact fun a_1 ↦ idxOf?_mem a_1
+  · exact fun a_1 ↦ idxOf?_getElem? a_1
   · intro h1
     have h2 : n < L.length := by
       exact (isSome_getElem? L n).mp (Option.isSome_of_mem h1)
@@ -41,6 +42,12 @@ theorem mem_idxOf_iff {α : Type} [inst : DecidableEq α] {a : α} {n : ℕ} {L 
         simp
     · exact h2
 
+/- This allows for some theorems to have easier to state hypotheses -/
+theorem idxOf?_mem {α : Type} [inst : DecidableEq α] {a : α} {n : ℕ} {L : List α}
+    (h : n = List.idxOf? a L) : a ∈ L := by
+  apply isSome_idxOf?.mp
+  exact Option.isSome_of_mem (id (Eq.symm h))
+
 theorem index_head {α : Type} {a : α} {L : List α} :
     some a = L.head? ↔ L[0]? = a := by
   unfold List.head?
@@ -59,7 +66,7 @@ theorem index_tail {α : Type} [inst : DecidableEq α] {a : α} {L : List α} :
         refine Option.ne_none_iff_exists.mp ?_
         exact Option.isSome_iff_ne_none.mp h
       obtain ⟨n, h1⟩ := h1
-      apply idxOf?_mem at h1
+      apply idxOf?_getElem? at h1
       use n+1
       constructor
       · exact Nat.le_add_left 1 n
@@ -104,8 +111,8 @@ theorem index_tail_minus_one {α : Type} [inst : DecidableEq α] {a : α} {L : L
           simp [h2] at hi
           contrapose hik
           exact Nat.not_lt.mpr hi
-      apply mem_idxOf_iff at h3
-      apply mem_idxOf_iff at h4
+      apply idxOf?_getElem?_iff at h3
+      apply idxOf?_getElem?_iff at h4
       simp [k, Nat.find_spec h] at h3
       rw [← h3]
       simp
@@ -128,6 +135,6 @@ lemma idxOf?_length {α : Type} [inst : DecidableEq α] {a : α} {n : ℕ} {L : 
     (h : some n = idxOf? a L) : n < L.length := by
   have h1 : L[n]?.isSome = true := by
     apply Option.isSome_of_mem
-    apply idxOf?_mem
+    apply idxOf?_getElem?
     exact h
   exact isSome_getElem?.mp h1
