@@ -144,29 +144,21 @@ lemma halt_output_bound (e s n y : ℕ) (h : y ∈ (Phi_s e s n)) :
   y < s := by
   simp [Phi_s] at h
   obtain ⟨⟨h1, ⟨z, ⟨h2, h3⟩⟩⟩, h⟩ := h
-  have h4 : y = z := by
-    simp [h] at h3
-    exact h3
-  rw [h4]
-  exact h2
+  simp_all
 
 /- If ϕₑ,ₛ(n)↓, then e < s -/
 lemma halt_index_bound (e s n : ℕ) (h : Phi_s_halts e s n) :
     e < s := by
-  simp [Phi_s_halts, Phi_s] at h
-  exact h.left.left
+  simp_all [Phi_s_halts, Phi_s]
 
 /- Helper lemmas - ϕ_{e, 0}(n)↑ -/
 lemma halt_stage_gt_zero (e s n : ℕ) (h : Phi_s_halts e s n) : s > 0 := by
-  contrapose h
-  simp at h
-  unfold Phi_s_halts Phi_s
-  rw [h]
-  simp
+  simp [Phi_s_halts, Phi_s] at h
+  linarith
 
 lemma stage_zero_diverges (e n : ℕ) : Phi_s_diverges e 0 n := by
-  unfold Phi_s_diverges Phi_s_halts Phi_s
-  simp
+  simp [Phi_s_diverges, Phi_s_halts, Phi_s]
+
 
 open Primrec
 
@@ -190,9 +182,7 @@ lemma phi_s_halts_primrec (e s : ℕ) : PrimrecPred (Phi_s_halts e s) := by
       · apply halt_output_bound e s n
         exact h
       · exact h
-    · intro ⟨x, h⟩
-      use x
-      exact h.right
+    · simp_all
   unfold Phi_s_halts
   simp [PrimrecPred]
   simp [h]
@@ -268,17 +258,14 @@ lemma Sigma01_is_W (X : Set ℕ) : Sigma01 X → ∃ e, X = W e := by
 lemma Sigma01_iff_W (X : Set ℕ) : Sigma01 X ↔ ∃ e, X = W e := by
   constructor
   · exact Sigma01_is_W X
-  · intro h
-    obtain ⟨e, h⟩ := h
-    rw [h]
-    exact W_Sigma01 e
+  · simp_all [W_Sigma01]
 
 /- Monotonicity of halting: if s < t and ϕ_{e,s}(n)↓, then ϕ_{e,t}(n)↓ -/
 lemma phi_halts_mono (e s t n : ℕ) (h : s ≤ t) (h1 : Phi_s_halts e s n) :
     Phi_s_halts e t n := by
   revert h1
   simp [Phi_s_halts, Phi_s]
-  intro h1 x h2 h3 y h4
+  intro _ x _ h3 _ _
   constructor
   · constructor
     · linarith
@@ -302,24 +289,18 @@ lemma phi_halts_mono_reverse (e s t n : ℕ) (h : s ≤ t) (h1 : Phi_s_diverges 
 def runtime (e n : ℕ) : Part ℕ :=
   rfind (fun s => (Phi_s e (s) n).isSome)
 
+/- TODO: runtime lemmas can be cleaned up with Nat.rfind spec/min? -/
 /- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
 lemma runtime_is_min (e r n : ℕ) : (r ∈ (runtime e n)) ↔
-    Phi_s_halts e (r) n ∧ (∀ (t : ℕ), t < r → Phi_s_diverges e t n) := by
+    Phi_s_halts e r n ∧ (∀ (t : ℕ), t < r → Phi_s_diverges e t n) := by
   constructor
   · intro h
     simp [runtime] at h
     obtain ⟨hs, hs2⟩ := h
     unfold Phi_s_halts
     constructor
-    · rw [Option.isSome_iff_exists] at hs
-      obtain ⟨a, h⟩ := hs
-      use a
-      exact h
-    · intro t h
-      apply hs2 at h
-      unfold Phi_s_diverges Phi_s_halts
-      rw [h]
-      simp
+    · simp_all [Option.isSome_iff_exists]
+    · simp_all [Phi_s_diverges, Phi_s_halts]
   · intro ⟨h1, h2⟩
     apply Option.isSome_iff_exists.mpr at h1
     simp [runtime]
@@ -331,6 +312,12 @@ lemma runtime_is_min (e r n : ℕ) : (r ∈ (runtime e n)) ↔
       push_neg at hm
       exact Option.eq_none_iff_forall_ne_some.mpr hm
 
+lemma runtime_is_min' (e s n : ℕ) (h : Phi_s_halts e s n) :
+    ∃ r ∈ runtime e n, r ≤ s := by
+  apply Nat.rfind_min'
+  exact Option.isSome_iff_exists.mpr h
+
+/- TODO : provide an explicit version and an exists version? -/
 /- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
 lemma phi_halts_stage_exists (e n : ℕ) : Phi_halts e n ↔ ∃ s, Phi_s_halts e s n := by
   unfold Phi_s_halts Phi_halts Phi_s Phi
@@ -353,7 +340,7 @@ lemma phi_halts_stage_exists (e n : ℕ) : Phi_halts e n ↔ ∃ s, Phi_s_halts 
       rotate_left
       · exact h
       · linarith -- k < e+x+k+1
-  · intro ⟨s, ⟨⟨h, ⟨y, ⟨hys, h1⟩⟩⟩, ⟨x, h2⟩⟩⟩
+  · intro ⟨s, ⟨⟨_, ⟨_, ⟨_, _⟩⟩⟩, ⟨x, _⟩⟩⟩
     use x
     use s
 
@@ -374,8 +361,7 @@ lemma phi_halts_runtime_exists (e n : ℕ) : Phi_halts e n ↔ ∃ r, r ∈ runt
     apply halt_stage_gt_zero at h4
     rw [gt_iff_lt, lt_iff_add_one_le, zero_add] at h4
     use t
-    simp [runtime]
-    exact h2
+    simp_all [runtime]
   · intro ⟨r, h⟩
     rw [runtime_is_min] at h
     rw [phi_halts_stage_exists]
