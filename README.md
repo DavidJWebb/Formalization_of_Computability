@@ -28,6 +28,7 @@ An ongoing effort to formalize computability theory notions involving subsets of
 - new_element e s is the element enumerated at stage s (if any)
 - Wenum e is the function s => new_element e s
 - ϕ_e(n) halts iff n is in the range of Wenum e
+- W_e is finite iff for all large enough s, Wenum e s = Option.none
 
 **Classical Computability Theory**
 - Immunity and cohesiveness are defined, with various lemmata (some of whose proofs rely on the next unproven fact)
