@@ -96,15 +96,6 @@ def Phi_s_halts : Prop :=
 def Phi_halts : Prop :=
     ∃ x, x ∈ Phi e n
 
-/- ϕₑ,ₛ(n)↑ iff it doesn't halt -/
-def Phi_s_diverges : Prop :=
-    ¬ Phi_s_halts e s n
-
-/- ϕₑ(n)↑ iff it doesn't halt -/
-def Phi_diverges : Prop :=
-    ¬ Phi_halts e n
-
-
 instance : Decidable (∃ x, x ∈ Phi_s e s n) := by
   simp only [Phi_s, Option.mem_def, Option.ite_none_right_eq_some, exists_and_left]
   have h : Decidable (∃ x, evaln s (ofNatCode e) n = some x) := by
@@ -156,8 +147,8 @@ lemma halt_stage_gt_zero (h : Phi_s_halts e s n) : s > 0 := by
     exists_and_left] at h
   linarith
 
-lemma stage_zero_diverges : Phi_s_diverges e 0 n := by
-  simp [Phi_s_diverges, Phi_s_halts, Phi_s]
+lemma stage_zero_diverges : ¬ Phi_s_halts e 0 n := by
+  simp [Phi_s_halts, Phi_s]
 
 
 open Primrec
@@ -264,11 +255,10 @@ lemma phi_halts_mono (h : s ≤ t) (h1 : Phi_s_halts e s n) :
     exact evaln_mono h h3
 
 /- Reverse monotonicity of halting: if s < t and ϕ_{e,t}(n)↑, then ϕ_{e,s}(n)↑ -/
-lemma phi_halts_mono_reverse (h : s ≤ t) (h1 : Phi_s_diverges e t n) :
-  Phi_s_diverges e s n := by
+lemma phi_halts_mono_reverse (h : s ≤ t) (h1 : ¬ Phi_s_halts e t n) :
+  ¬ Phi_s_halts e s n := by
   contrapose h1
   revert h1
-  unfold Phi_s_diverges
   rw [not_not, not_not]
   exact fun h1 ↦ phi_halts_mono e s t n h h1
 
@@ -279,13 +269,13 @@ def runtime : Part ℕ :=
 /- TODO: runtime lemmas can be cleaned up with Nat.rfind spec/min? -/
 /- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
 lemma runtime_is_min (r : ℕ) : (r ∈ (runtime e n)) ↔
-    Phi_s_halts e r n ∧ (∀ (t : ℕ), t < r → Phi_s_diverges e t n) := by
+    Phi_s_halts e r n ∧ (∀ (t : ℕ), t < r → ¬ Phi_s_halts e t n) := by
   constructor
   · intro h
     simp only [runtime, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, Bool.false_eq,
       Option.isSome_eq_false_iff, Option.isNone_iff_eq_none] at h
     constructor
-    <;> simp_all [Option.isSome_iff_exists, Phi_s_diverges, Phi_s_halts]
+    <;> simp_all [Option.isSome_iff_exists, Phi_s_halts]
   · intro ⟨h1, h2⟩
     apply Option.isSome_iff_exists.mpr at h1
     simp only [runtime, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, Bool.false_eq,
@@ -294,7 +284,7 @@ lemma runtime_is_min (r : ℕ) : (r ∈ (runtime e n)) ↔
     · exact h1
     · intro m hm
       apply h2 at hm
-      unfold Phi_s_diverges Phi_s_halts at hm
+      unfold Phi_s_halts at hm
       push_neg at hm
       exact Option.eq_none_iff_forall_ne_some.mpr hm
 
