@@ -102,7 +102,7 @@ instance : Decidable (∃ x, x ∈ Phi_s e s n) := by
      match evaln s (ofNatCode e) n with
     | some x        => exact isTrue ⟨x, rfl⟩
     | Option.none   => exact isFalse (λ ⟨x, h⟩ => Option.noConfusion h)
-  apply instDecidableAnd
+  exact instDecidableAnd
 
 /- ϕₑ,ₛ(n) is decidable -/
 instance : Decidable (Phi_s_halts e s n) := by
@@ -111,7 +111,7 @@ instance : Decidable (Phi_s_halts e s n) := by
      match evaln s (ofNatCode e) n with
     | some x        => exact isTrue ⟨x, rfl⟩
     | Option.none   => exact isFalse (λ ⟨x, h⟩ => Option.noConfusion h)
-  apply instDecidableAnd
+  exact instDecidableAnd
 
 /- Wₑ,ₛ = the domain of ϕₑ,ₛ. As all inputs n ≥ s do not halt,
 this set is necessarily finite. -/
@@ -170,8 +170,7 @@ lemma phi_s_halts_primrec : PrimrecPred (Phi_s_halts e s) := by
     · intro ⟨x, h⟩
       use x
       constructor
-      · apply halt_output_bound e s n
-        exact h
+      · exact halt_output_bound e s n x h
       · exact h
     · simp_all
   unfold Phi_s_halts
@@ -198,7 +197,7 @@ lemma W_s_Primrec : primrec_set (W_s e s) := by
     · intro ⟨h, h1⟩
       exact decide_eq_true h1
     · intro h
-      simp at h
+      simp only [decide_eq_true_eq] at h
       constructor
       · exact halt_input_bound e s x h
       · exact h
@@ -226,8 +225,7 @@ lemma Sigma01_is_W : Sigma01 X → ∃ e, X = W e := by
   obtain ⟨c, h3⟩ := h3
   rw [← h2, h4]
   use c.encodeCode
-  unfold W
-  unfold Phi
+  unfold W Phi
   rw [← ofNatCode_encode c]
   exact congrArg PFun.Dom (id (Eq.symm h3))
 
@@ -251,16 +249,14 @@ lemma phi_halts_mono (h : s ≤ t) (h1 : Phi_s_halts e s n) :
       constructor
       · linarith
       · exact evaln_mono h h3
-  · use x
-    exact evaln_mono h h3
+  · exact ⟨x, evaln_mono h h3⟩
 
 /- Reverse monotonicity of halting: if s < t and ϕ_{e,t}(n)↑, then ϕ_{e,s}(n)↑ -/
 lemma phi_halts_mono_reverse (h : s ≤ t) (h1 : ¬ Phi_s_halts e t n) :
   ¬ Phi_s_halts e s n := by
   contrapose h1
-  revert h1
-  rw [not_not, not_not]
-  exact fun h1 ↦ phi_halts_mono e s t n h h1
+  simp_all only [not_not]
+  exact phi_halts_mono e s t n h h1
 
 /- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
 def runtime : Part ℕ :=
@@ -289,9 +285,7 @@ lemma runtime_is_min (r : ℕ) : (r ∈ (runtime e n)) ↔
       exact Option.eq_none_iff_forall_ne_some.mpr hm
 
 lemma runtime_is_min' (h : Phi_s_halts e s n) :
-    ∃ r ∈ runtime e n, r ≤ s := by
-  apply Nat.rfind_min'
-  exact Option.isSome_iff_exists.mpr h
+    ∃ r ∈ runtime e n, r ≤ s := Nat.rfind_min' (Option.isSome_iff_exists.mpr h)
 
 /- TODO : provide an explicit version and an exists version? -/
 /- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
@@ -315,8 +309,7 @@ lemma phi_halts_stage_exists : Phi_halts e n ↔ ∃ s, Phi_s_halts e s n := by
       · linarith -- k < e+x+k+1
       · exact h
   · intro ⟨s, ⟨⟨_, ⟨_, ⟨_, _⟩⟩⟩, ⟨x, _⟩⟩⟩
-    use x
-    use s
+    use x, s
 
 /- ϕₑ(n)↓ iff there is a *least* stage s at which ϕₑ,ₛ(n)↓ -/
 lemma phi_halts_runtime_exists : Phi_halts e n ↔ ∃ r, r ∈ runtime e n := by
@@ -326,8 +319,7 @@ lemma phi_halts_runtime_exists : Phi_halts e n ↔ ∃ r, r ∈ runtime e n := b
     obtain ⟨s, h⟩ := h
     have h1 : ∃ r, r ∈ rfindOpt (λ s => Phi_s e s n) := by
       rw [← Part.dom_iff_mem, rfindOpt_dom]
-      use s
-      exact h
+      exact ⟨s, h⟩
     obtain ⟨y, h1⟩:= h1
     simp only [rfindOpt, Part.coe_some, Part.mem_bind_iff, mem_rfind, Part.mem_some_iff,
       Bool.true_eq, Bool.false_eq, Option.isSome_eq_false_iff, Option.isNone_iff_eq_none,
@@ -341,17 +333,15 @@ lemma phi_halts_runtime_exists : Phi_halts e n ↔ ∃ r, r ∈ runtime e n := b
   · intro ⟨r, h⟩
     rw [runtime_is_min] at h
     rw [phi_halts_stage_exists]
-    use r
-    exact h.left
+    exact ⟨r, h.left⟩
 
 /- ϕₑ,ₛ(n)↓ iff n ∈ Wₑ,ₛ -/
 lemma W_s_Phi_s : n ∈ W_s e s ↔ Phi_s_halts e s n := by
-unfold W_s Phi_s_halts
-simp
-intro x h
-apply halt_input_bound e s n
-use x
-exact h
+  unfold W_s Phi_s_halts
+  simp
+  intro x h
+  apply halt_input_bound e s n
+  exact ⟨x, h⟩
 
 lemma Ws_gt_zero  : n ∈ W_s e s → s > 0 := by
   rw [W_s_Phi_s]
@@ -365,8 +355,8 @@ lemma Ws_zero_empty : W_s e 0 = ∅ := by
 
 /- ϕₑ(x)↓ ↔ x ∈ Wₑ -/
 lemma mem_W_phi : n ∈ W e ↔ Phi_halts e n := by
-unfold W Phi_halts
-exact Part.dom_iff_mem
+  unfold W Phi_halts
+  exact Part.dom_iff_mem
 
 /- W_{s} ⊆ W_{e, s+1}  -/
 lemma W_s_mono (h : s ≤ t): (W_s e s) ⊆ (W_s e t) := by
@@ -376,7 +366,8 @@ lemma W_s_mono (h : s ≤ t): (W_s e s) ⊆ (W_s e t) := by
   constructor
   · linarith
   · apply phi_halts_mono e s
-    <;> simp [h, h2]
+    · exact h
+    · exact h2
 
 lemma W_s_mono_reverse (h : t ≤ s) : (W_s e t) ⊆ (W_s e s) := by
   intro x
@@ -385,7 +376,8 @@ lemma W_s_mono_reverse (h : t ≤ s) : (W_s e t) ⊆ (W_s e s) := by
   constructor
   · linarith
   · apply phi_halts_mono e t
-    <;> simp [h, h2]
+    · exact h
+    · exact h2
 
 /- Membership in some W_{e,s} implies runtime r exists, and membership in W_{e, r+1}-/
 lemma Ws_runtime (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n ∧ n ∈ W_s e r := by
@@ -420,13 +412,11 @@ constructor
   apply Part.dom_iff_mem.mp at h
   rw [← Phi_halts, phi_halts_stage_exists] at h
   obtain ⟨s, h⟩ := h
-  use s
-  rw [W_s_Phi_s]
-  exact h
+  simp only [W_s_Phi_s]
+  exact ⟨s, h⟩
 · intro h
   obtain ⟨s, h⟩ := h
-  apply W_s_subset_W
-  exact h
+  exact W_s_subset_W e s h
 
 lemma W_eq_union_W_s : W e = ⋃ (s : ℕ), W_s e s := by
 ext x
