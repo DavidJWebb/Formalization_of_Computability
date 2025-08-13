@@ -1,9 +1,7 @@
 import FormalizationOfComputability.CodeDecode
 import FormalizationOfComputability.Cohesive
-import FormalizationOfComputability.List
 import FormalizationOfComputability.Phi
 import FormalizationOfComputability.PhiSeq
-import FormalizationOfComputability.PrimRecFilter
 import FormalizationOfComputability.SetPrimRec1
 import FormalizationOfComputability.Sets
 import FormalizationOfComputability.SpareLemmas

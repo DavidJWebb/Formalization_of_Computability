@@ -34,7 +34,6 @@ lemma PhiNewList_mem (e s x : ℕ) : x ∈ PhiNewList e s ↔ x ∈ PhiNew e s :
   simp [PhiNewList, PhiNew]
 
 /- This lemma cleans up lines that would otherwise be a rather lengthy simp only -/
-private
 lemma PhiNew_mem_lemma (e s x : ℕ) :
     x ∈ PhiNew e s ↔ (x < s ∧ Phi_s_halts e s x ∧ ¬Phi_s_halts e (s - 1) x) := by
   simp [PhiNew, PhiNewList]

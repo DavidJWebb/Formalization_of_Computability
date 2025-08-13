@@ -58,4 +58,11 @@ lemma kth_mem (e n : ℕ) : (Phi_halts e n) ↔
     rw [← WPrefix_phi]
     use s
 
+/- If A is a suffix of B, then A++C is a suffix of B++C -/
+lemma List.isSuffix_append {α : Type} (A B C : List α) (h : A <:+ B) :
+    A ++ C <:+ B ++ C := by
+  obtain ⟨T, h⟩ := h
+  use T
+  rw [← append_assoc, h]
+
 #min_imports
