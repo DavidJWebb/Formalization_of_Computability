@@ -29,9 +29,9 @@ This allows for set operations such as union, intersection, set difference, and 
 - [R. I. Soare *Turing Computability - Theory and Applications*] [Soare2016]
 -/
 
-open Set Finite
+open Set Finite Partrec Primrec  Computable
 
-namespace Computability
+namespace Primrec
 
 variable (X Y : Set ℕ)
 
@@ -49,7 +49,7 @@ def partrec_set : Prop := ∃ (f: ℕ →. Unit), Partrec f ∧ f.Dom = X
 theorem primrec_set.computable (h : primrec_set X) : computable_set X := by
   obtain ⟨f, ⟨_, _⟩⟩ := h
   use f
-  simp_all [Primrec.to_comp]
+  simp_all [to_comp]
 
 /-- Computable sets are partial recursive -/
 theorem computable_set.partrec (h : computable_set X) : partrec_set X := by
@@ -57,21 +57,20 @@ theorem computable_set.partrec (h : computable_set X) : partrec_set X := by
   apply Computable.partrec at fComp
   use fun x ↦ bif f x then Part.some () else Part.none
   constructor
-  · exact Partrec.cond fComp (Partrec.const' (Part.some ())) (Partrec.const' (Part.none))
+  · exact .cond fComp (.const' (Part.some ())) (.const' (Part.none))
   · ext x
     cases hfx : f x <;> simp_all
 
 /-- Primitive recursive sets are partial recursive -/
 theorem primrec_set.partrec (h : primrec_set X) : partrec_set X := by
   apply computable_set.partrec
-  apply primrec_set.computable
-  exact h
+  exact primrec_set.computable X h
 
 /-! ### Lemmata about the natural numbers -/
 /-- ℕ is primitive recursive -/
 theorem nat_primrec : primrec_set (univ : Set ℕ) := by
   use (fun _ ↦ true)
-  simp_all [Primrec.const]
+  simp [const]
 
 /-- ℕ is computable -/
 theorem nat_computable : computable_set (univ : Set ℕ) := by
@@ -87,7 +86,7 @@ theorem nat_partrec : partrec_set (univ : Set ℕ) := by
 /-- ∅ is primitive recursive -/
 theorem empty_primrec_set : primrec_set (∅ : Set ℕ) := by
   use (fun _ ↦ false)
-  simp_all [Primrec.const]
+  simp [const]
 
 /-- ∅ is computable -/
 theorem empty_computable_set : computable_set (∅ : Set ℕ) := by
@@ -105,8 +104,7 @@ theorem empty_partrec_set : partrec_set (∅ : Set ℕ) := by
 theorem singleton_primrec (a : ℕ) : primrec_set ({a} : Set ℕ) := by
   use fun n ↦ bif n = a then true else false
   constructor
-  · apply Primrec.cond ?_ (Primrec.const true) (Primrec.const false)
-    · exact PrimrecRel.comp Primrec.eq Primrec.id (Primrec.const a)
+  · apply cond (PrimrecRel.comp Primrec.eq Primrec.id (const a)) (const true) (const false)
   · simp
 
 /- Singletons are computable -/
@@ -130,14 +128,12 @@ theorem primrec_set.Union (hX : primrec_set X) (hY : primrec_set Y) :
   obtain ⟨g, ⟨gPrim, hY⟩⟩ := hY
   use fun (a : ℕ) ↦ f a ∨ g a
   constructor
-  · apply Primrec.ite ?_ (Primrec.const true) (Primrec.const false)
-    · apply PrimrecPred.or
-      · exact PrimrecRel.comp Primrec.eq fPrim (Primrec.const true)
-      · exact PrimrecRel.comp Primrec.eq gPrim (Primrec.const true)
+  · apply ite (PrimrecPred.or ?_ ?_) (const true) (const false)
+    · exact PrimrecRel.comp .eq fPrim (const true)
+    · exact PrimrecRel.comp .eq gPrim (const true)
   · intro x
-    apply Iff.trans
-    · exact mem_union x X Y
-    · simp [hX, hY]
+    apply Iff.trans (mem_union x X Y)
+    simp [hX, hY]
 
 /-- The computable sets are closed under union -/
 theorem computable_set.Union (hX : computable_set X) (hY : computable_set Y) :
@@ -146,11 +142,10 @@ theorem computable_set.Union (hX : computable_set X) (hY : computable_set Y) :
   obtain ⟨g, ⟨gComp, hY⟩⟩ := hY
   use fun (a : ℕ) ↦ f a || g a
   constructor
-  · exact Computable.cond fComp (Computable.const true) gComp
+  · exact .cond fComp (.const true) gComp
   · intro x
-    apply Iff.trans
-    · exact mem_union x X Y
-    · simp [hX, hY]
+    apply Iff.trans (mem_union x X Y)
+    simp [hX, hY]
 
 /-- The partial recursive sets are closed under union -/
 theorem partrec_set.Union (hX : partrec_set X) (hY : partrec_set Y) :
@@ -174,13 +169,12 @@ theorem primrec_set.Inter (hX : primrec_set X) (hY : primrec_set Y) :
   obtain ⟨g, ⟨gPrim, hY⟩⟩ := hY
   use fun (a : ℕ) ↦ f a ∧ g a
   constructor
-  · apply Primrec.ite (PrimrecPred.and ?_ ?_) (Primrec.const true) (Primrec.const false)
-    · exact PrimrecRel.comp Primrec.eq fPrim (Primrec.const true)
-    · exact PrimrecRel.comp Primrec.eq gPrim (Primrec.const true)
+  · apply ite (PrimrecPred.and ?_ ?_) (const true) (const false)
+    · exact PrimrecRel.comp .eq fPrim (const true)
+    · exact PrimrecRel.comp .eq gPrim (const true)
   · intro x
-    apply Iff.trans
-    · apply mem_inter_iff
-    · simp [hX, hY]
+    apply Iff.trans (mem_inter_iff x X Y)
+    simp [hX, hY]
 
 /-- The computable sets are closed under intersection -/
 theorem computable_set.Inter (hX : computable_set X) (hY : computable_set Y) :
@@ -190,11 +184,10 @@ theorem computable_set.Inter (hX : computable_set X) (hY : computable_set Y) :
   use fun (a : ℕ) ↦ f a ∧ g a
   constructor
   · simp only [Bool.decide_and, Bool.decide_eq_true]
-    exact Computable₂.comp (Primrec₂.to_comp Primrec.and) fComp gComp
+    exact Computable₂.comp (Primrec₂.to_comp .and) fComp gComp
   · intro x
-    apply Iff.trans
-    · exact mem_inter_iff x X Y
-    · simp [hX, hY]
+    apply Iff.trans (mem_inter_iff x X Y)
+    simp [hX, hY]
 
 /-- The partial recursive sets are closed under intersection -/
 theorem partrec_set.Inter (hX : partrec_set X) (hY : partrec_set Y) :
@@ -203,7 +196,7 @@ theorem partrec_set.Inter (hX : partrec_set X) (hY : partrec_set Y) :
   obtain ⟨g, ⟨gPart, hY⟩⟩ := hY
   use fun x ↦ (f x).bind (fun _ ↦ g x)
   constructor
-  · exact Partrec.bind fPart (Partrec.comp gPart (Computable.fst))
+  · exact .bind fPart (Partrec.comp gPart (.fst))
   · ext x
     simp [← hX, ← hY]
     apply and_congr <;> exact Part.dom_iff_mem
@@ -216,7 +209,7 @@ theorem primrec_set.Compl (hX : primrec_set X) : primrec_set Xᶜ := by
   obtain ⟨f, ⟨fPrim, hX⟩⟩ := hX
   use fun x ↦ !(f x)
   constructor
-  · exact Primrec.cond fPrim (Primrec.const false) (Primrec.const true)
+  · exact cond fPrim (const false) (const true)
   · simp [hX]
 
 /-- A set is primitive recursive iff its complement is -/
@@ -225,15 +218,14 @@ theorem primrec_set.Compl_iff : primrec_set X ↔ primrec_set Xᶜ := by
   · exact primrec_set.Compl X
   · intro h
     rw [← compl_compl X]
-    apply primrec_set.Compl Xᶜ
-    exact h
+    exact primrec_set.Compl Xᶜ h
 
 /-- The computable sets are closed under complement -/
 theorem computable_set.Compl (hX : computable_set X) : computable_set Xᶜ := by
   obtain ⟨f, ⟨fComp, hX⟩⟩ := hX
   use fun x ↦ !(f x)
   constructor
-  · exact Computable.cond fComp (Computable.const false) (Computable.const true)
+  · exact .cond fComp (.const false) (.const true)
   · simp [hX]
 
 /-- A set is computable iff its complement is -/
@@ -242,36 +234,23 @@ theorem computable_set.Compl_iff : computable_set X ↔ computable_set Xᶜ := b
   · exact computable_set.Compl X
   · intro h
     rw [← compl_compl X]
-    apply computable_set.Compl Xᶜ
-    exact h
+    exact computable_set.Compl Xᶜ h
 
 
 /-! ### Lemmata about set differences
 Note that primitive recursive sets are only closed under set difference by computable sets -/
 /-- The primitive recursive sets are closed under set difference -/
 theorem primrec_set.Sdiff (hX : primrec_set X) (hY : primrec_set Y) :
-primrec_set (X \ Y) := by
-  apply primrec_set.Compl at hY
-  apply primrec_set.Inter
-  · exact hX
-  · exact hY
+    primrec_set (X \ Y) := primrec_set.Inter X Yᶜ hX (primrec_set.Compl Y hY)
 
 /-- The computable sets are closed under set difference -/
 theorem computable_set.Sdiff (hX : computable_set X) (hY : computable_set Y) :
-    computable_set (X \ Y) := by
-  apply computable_set.Compl at hY
-  apply computable_set.Inter
-  · exact hX
-  · exact hY
+    computable_set (X \ Y) := computable_set.Inter X Yᶜ hX (computable_set.Compl Y hY)
 
 /-- The partial recursive sets are closed under set difference *by computable sets* -/
 theorem partrec_set.Sdiff_computable (hX : partrec_set X) (hY : computable_set Y) :
-    partrec_set (X \ Y) := by
-  apply computable_set.Compl at hY
-  apply partrec_set.Inter
-  · exact hX
-  · apply computable_set.partrec
-    exact hY
+    partrec_set (X \ Y) :=
+  partrec_set.Inter X Yᶜ hX (computable_set.partrec Yᶜ (computable_set.Compl Y hY))
 
 
 /-! ### Lemmata about finite sets -/
@@ -279,26 +258,17 @@ theorem partrec_set.Sdiff_computable (hX : partrec_set X) (hY : computable_set Y
 theorem finite_primrec_set (h : X.Finite) : primrec_set X := by
   obtain ⟨X, rfl⟩ := exists_finset_coe h
   induction' X using Finset.induction_on' with a S ha hS haS hSPrim
-  · simp only [Finset.coe_empty]
-    exact empty_primrec_set
-  · rw [Finset.coe_insert]
-    rw [insert_eq]
-    apply primrec_set.Union
-    · exact singleton_primrec a
-    · apply hSPrim
-      exact of_fintype ↑↑S
+  · simp only [Finset.coe_empty, empty_primrec_set]
+  · rw [Finset.coe_insert, insert_eq]
+    exact primrec_set.Union {a} ↑S (singleton_primrec a) (hSPrim (of_fintype ↑S))
 
 /-- Finite sets are comptuable -/
-theorem finite_computable_set (h : X.Finite) : computable_set X := by
-  apply primrec_set.computable
-  apply finite_primrec_set
-  exact h
+theorem finite_computable_set (h : X.Finite) : computable_set X :=
+  primrec_set.computable X (finite_primrec_set X h)
 
 /-- Finite sets are partial recursive -/
-theorem finite_partrec_set (h : X.Finite) : partrec_set X := by
-  apply computable_set.partrec
-  apply finite_computable_set
-  exact h
+theorem finite_partrec_set (h : X.Finite) : partrec_set X :=
+  computable_set.partrec X (finite_computable_set X h)
 
 
 /-! ### Lemmata about cofinite sets -/
@@ -308,20 +278,15 @@ theorem cofinite_primrec_set (hX : Xᶜ.Finite) : primrec_set X := by
   rw [← compl_compl X]
   apply primrec_set.Compl
   rw [← hXc]
-  apply finite_primrec_set
-  exact Finset.finite_toSet Xc
+  exact finite_primrec_set Xc (Finset.finite_toSet Xc)
 
 /-- Cofinite sets are comptuable -/
-theorem cofinite_computable_set (hX : Xᶜ.Finite) : computable_set X := by
-  apply primrec_set.computable
-  apply cofinite_primrec_set
-  exact hX
+theorem cofinite_computable_set (hX : Xᶜ.Finite) : computable_set X :=
+  primrec_set.computable X (cofinite_primrec_set X hX)
 
 /-- Cofinite sets are partial recursive -/
-theorem cofinite_partrec_set (hX : Xᶜ.Finite) : partrec_set X := by
-  apply computable_set.partrec
-  apply cofinite_computable_set
-  exact hX
+theorem cofinite_partrec_set (hX : Xᶜ.Finite) : partrec_set X :=
+  computable_set.partrec X (cofinite_computable_set X hX)
 
 
 /-! ### Lemmata about symmetric differences -/
@@ -348,8 +313,8 @@ def eq_star (X Y : Set ℕ) : Prop := (X∆Y).Finite
 infix:50 " =* " => eq_star
 /-- The relation of having a finite symmetric difference is commutative -/
 theorem eq_star_comm : X =* Y ↔ Y =* X := by
-unfold eq_star
-rw [symmDiff_comm]
+  unfold eq_star
+  rw [symmDiff_comm]
 
 /-- The relation of having a finite symmetric difference is transitive -/
 theorem eq_star_trans (X Y Z : Set ℕ) (hXY : X =* Y) (hYZ : Y =* Z) : X =* Z := by
@@ -361,8 +326,8 @@ theorem finite_eq_star (hXY : X =* Y) (hX : X.Finite): Y.Finite := by
   unfold eq_star at hXY
   rw [Set.symmDiff_def, finite_union] at hXY
   obtain ⟨_, hYX⟩ := hXY
-  have hY : Y = (Y∩X) ∪ (Y\X) := by rw [inter_union_diff]
-  rw [hY, finite_union]
+  have hY := inter_union_diff Y X
+  rw [←hY, finite_union]
   constructor
   · exact inter_of_right hX Y
   · exact hYX
@@ -370,12 +335,9 @@ theorem finite_eq_star (hXY : X =* Y) (hX : X.Finite): Y.Finite := by
 /-- If X=*Y, then X is finite iff Y is -/
 theorem finite_eq_star_iff (hXY : X =* Y) : X.Finite ↔ Y.Finite := by
   constructor
-  · intro h
-    apply finite_eq_star X
-    · exact hXY
-    · exact h
-  · intro h
-    apply finite_eq_star Y
+  <;> intro h
+  · exact finite_eq_star X Y hXY h
+  · apply finite_eq_star Y
     rw [eq_star_comm]
     · exact hXY
     · exact h
@@ -405,10 +367,9 @@ theorem compl_eq_star (hXY : X =* Y) : Xᶜ =* Yᶜ := by
   simp
 
 /-- If X=*Y and X is partial recursive, then Y is partial recursive -/
-theorem partrec_set_eq_star (hXY : X =* Y) : partrec_set X → partrec_set Y := by
-  intro hX
-  let S : Finset ℕ := hXY.toFinset
-  have hS : ↑S = (X∆Y) := Finite.coe_toFinset hXY
+theorem partrec_set_eq_star (hXY : X =* Y) (hX : partrec_set X) : partrec_set Y := by
+  let S := hXY.toFinset
+  have hS := Finite.coe_toFinset hXY
   let C := Y\X
   let D := X\Y
   have hY : Y = (X∪C)\D := by
@@ -433,5 +394,3 @@ theorem partrec_set_eq_star_iff (hXY : X =* Y) : partrec_set X ↔ partrec_set Y
   · exact fun a ↦ partrec_set_eq_star X Y hXY a
   · rw [eq_star_comm] at hXY
     exact fun a ↦ partrec_set_eq_star Y X hXY a
-
-end Computability
