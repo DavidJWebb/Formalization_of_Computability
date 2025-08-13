@@ -27,8 +27,7 @@ def PhiNewList (e s : ℕ) : List ℕ :=
 
 def PhiNew (e s : ℕ) : Finset ℕ := (PhiNewList e s).toFinset
 
-lemma PhiNewList_zero (e : ℕ) : PhiNewList e 0 = ∅ := by
-  simp [PhiNewList]
+lemma PhiNewList_zero (e : ℕ) : PhiNewList e 0 = ∅ := by simp [PhiNewList]
 
 variable {e s t n x y i k l : ℕ}
 
@@ -50,7 +49,7 @@ lemma PhiNew_eq_Ws_diff (e s : ℕ) : (PhiNew e s) = (W_s e s) \ (W_s e (s-1)) :
   · intro x
     simp only [Finset.mem_sdiff, Finset.mem_filter, Finset.mem_range, not_and, mem_toFinset,
       and_imp]
-    intro h1 h2 h3
+    intro h1 _ h3
     simp only [PhiNewList, Bool.decide_and, decide_not, mem_filter, mem_range, Bool.and_eq_true,
       decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not]
     constructor
@@ -600,17 +599,10 @@ lemma Wenum_finite_iff (e : ℕ) : (W e).Finite ↔ ∃ s, ∀ t > s, Wenum e t 
 
 lemma Wenum_infinite_iff (e : ℕ) : (W e).Infinite ↔ ∀ s, ∃ t > s, ∃ n, Wenum e t = some n := by
   have h := Wenum_finite_iff e
-  have h1 : ¬ (W e).Finite ↔ (W e).Infinite := by exact Iff.symm (Eq.to_iff rfl)
+  have h1 : ¬ (W e).Finite ↔ (W e).Infinite := Iff.symm (Eq.to_iff rfl)
   simp_all [Option.ne_none_iff_exists']
 
-
-
-
-
--- 1 ↔ 2 ↔ 6 ↔ 4 ↔ 3
--- needed: 5 → any of the others
-
--- 5 → 2
+-- the following are here just to prove the TFAE statement
 lemma queue_depletes_implies_PhiNew_stabilizes (h : ∃ t, ∀ s > t, enter_queue e s = []) :
     ∃ t, ∀ s > t, PhiNew e s = ∅ := by
   obtain ⟨t, h⟩ := h
@@ -627,7 +619,6 @@ lemma queue_depletes_implies_PhiNew_stabilizes (h : ∃ t, ∀ s > t, enter_queu
     simp [PhiNew]
     simp [h1, hs1]
 
--- 3 → 4
 lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s > t, W_s e s = W_s e t) :
     ∃ t, W e = W_s e t := by
   obtain ⟨t, h⟩ := h
@@ -644,13 +635,11 @@ lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s > t, W_s e s = W_s e t) :
   · use t
     exact h1
 
--- 4 → 1
 lemma We_finite_iff_We_eq_Ws (h : ∃ t, W e = W_s e t) : (W e).Finite := by
   obtain ⟨t, h⟩ := h
   rw [h]
   simp
 
--- 2 → 3
 lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s > t, PhiNew e s = ∅) :
     ∃ t, ∀ s > t, W_s e s = W_s e t := by
   obtain ⟨t, h⟩ := h
