@@ -8,6 +8,7 @@ import FormalizationOfComputability.Phi
 import Mathlib.Data.List.TFAE
 import Mathlib.Data.Set.Finite.Lattice
 import Mathlib.Data.Stream.Defs
+import Mathlib.Tactic.TFAE
 
 /- # Wₑ as a sequence
 This file builds W_seq, which enumerates the elements n of W_e in the order that each ϕ_e(n) halts -/
@@ -603,93 +604,91 @@ lemma Wenum_infinite_iff (e : ℕ) : (W e).Infinite ↔ ∀ s, ∃ t > s, ∃ n,
   simp_all [Option.ne_none_iff_exists']
 
 
-theorem We_finite_TFAE (e : ℕ) :
-    [
-      (W e).Finite,                         --1
-      ∃ s, ∀ t ≥ s, PhiNew e t = ∅,         --2
-      ∃ s, ∀ t ≥ s, W_s e t = W_s e s,      --3
-      ∃ s, W e = W_s e s,                   --4
-      ∃ s, ∀ t ≥ s, enter_queue e t = [],   --5
-      ∃ s, ∀ t ≥ s, Wenum e t = Option.none --6
-    ].TFAE := by
-  sorry
 
-/- Proven above:
-1 ↔ 2 We_finite_iff_PhiNew_stabilizes
-1 → 5 queue_depletes (with s and t switched)
-1 ↔ 6 Wenum_finite_iff
--/
 
--- 1 ↔ 2 ↔ 6 ↔ 4 → 3, 5
--- needed: 3 → 4, 5 → 6
 
--- 2 → 4
-lemma PhiNew_stabilizes_implies_We_eq_Ws (e s : ℕ) (h : ∀ t > s, PhiNew e t = ∅) :
-    W e = W_s e s := by
-  rw [We_eq_union_WsNew]
-  apply subset_antisymm
-  <;> intro x h1
-  · simp only [Set.mem_iUnion, Finset.mem_coe] at h1
-    obtain ⟨r, h1⟩ := h1
-    have h2 : r ≤ s := by
-      contrapose h1
-      simp only [not_le] at h1
-      apply h at h1
-      rw [h1]
-      simp
-    have h3 : x ∈ W_s e r := by
-      rw [Ws_eq]
-      exact Finset.mem_union_right (W_s e (r - 1)) h1
-    exact W_s_mono h2 h3
-  · apply Ws_runtime at h1
-    obtain ⟨r, ⟨h1, h2⟩⟩ := h1
-    rw [← PhiNew_runtime_iff] at h1
-    simp only [Set.mem_iUnion, Finset.mem_coe]
-    use r
+-- 1 ↔ 2 ↔ 6 ↔ 4 ↔ 3
+-- needed: 5 → any of the others
 
--- 1 ↔ 4
-lemma We_finite_iff_We_eq_Ws (e : ℕ) : (W e).Finite ↔ ∃ s, W e = W_s e s := by
+-- 5 → 2
+lemma queue_depletes_implies_PhiNew_stabilizes (h : ∃ t, ∀ s > t, enter_queue e s = []) :
+    ∃ t, ∀ s > t, PhiNew e s = ∅ := by
+  obtain ⟨t, h⟩ := h
+  use t
+  intro s hts
+  have h1 := h s hts
+  by_cases hs : s = 0
+  · simp [hs]
+    rfl
+  · obtain ⟨k, hs1⟩ := exists_eq_succ_of_ne_zero hs
+    rw [hs1] at h1
+    unfold enter_queue at h1
+    apply List.append_eq_nil_iff.mp at h1
+    simp [PhiNew]
+    simp [h1, hs1]
+
+-- 3 → 4
+lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s > t, W_s e s = W_s e t) :
+    ∃ t, W e = W_s e t := by
+  obtain ⟨t, h⟩ := h
+  use t
+  ext x
+  rw [W_mem_iff_W_s]
   constructor
-  · rw [We_finite_iff_PhiNew_stabilizes]
-    intro ⟨t, h⟩
-    use t
-    apply PhiNew_stabilizes_implies_We_eq_Ws
-    exact h
-  · intro ⟨s, h⟩
-    rw [h]
-    simp
+  <;> intro h1
+  · obtain ⟨s, h1⟩ := h1
+    by_cases hts : s > t
+    · apply h at hts
+      simp [← hts, h1]
+    · exact W_s_mono (Nat.le_of_not_lt hts) h1
+  · use t
+    exact h1
+
+-- 4 → 1
+lemma We_finite_iff_We_eq_Ws (h : ∃ t, W e = W_s e t) : (W e).Finite := by
+  obtain ⟨t, h⟩ := h
+  rw [h]
+  simp
 
 -- 2 → 3
-lemma WsNew_stabilizes_Ws_stabilizes (e t : ℕ) (h : ∀ s ≥ t, PhiNew e s = ∅) :
-    ∀ s ≥ t, W_s e s = W_s e t := by
-  have h1 : ∀ s ≥ t, (W_s e (s+1)) = (W_s e s) := by
+lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s > t, PhiNew e s = ∅) :
+    ∃ t, ∀ s > t, W_s e s = W_s e t := by
+  obtain ⟨t, h⟩ := h
+  use t
+  intro s
+  have h1 : ∀ s > t, W_s e s = W_s e (s-1) := by
     intro s h1
-    rw [Ws_eq]
-    simp only [add_tsub_cancel_right, Finset.union_eq_left]
-    have h2 : PhiNew e (s+1) = ∅ := by
-      apply h
-      linarith
+    induction' s with s ih
+    · tauto
+    · simp
+      apply h at h1
+      rw [PhiNew_eq_Ws_diff] at h1
+      simp at h1
+      exact subset_antisymm h1 (W_s_mono_reverse (Nat.le_add_right s 1))
+  induction' s with s ih
+  · tauto
+  · intro h2
+    have h3 := h2
+    apply h1 at h2
+    simp at h2
     rw [h2]
-    simp
-  intro s h2
-  induction' s using Nat.strong_induction_on with s ih
-  by_cases h3 : s = t
-  · simp [h3]
-  · have h4 : s - 1 ≥ t := by
-      refine le_sub_one_of_lt ?_
-      exact Nat.lt_of_le_of_ne h2 fun a ↦ h3 (id (Eq.symm a))
-    have h5 : (W_s e (s-1)) = (W_s e t) := by
-      apply ih (s-1)
-      · apply Nat.sub_one_lt
-        cases t
-        · tauto
-        · linarith
-      exact h4
-    rw [← h5]
-    have h6 : s - 1 + 1 = s := by
-      refine Nat.sub_add_cancel ?_
-      cases t
-      · exact one_le_iff_ne_zero.mpr h3
-      · exact one_le_of_lt h2
-    rw [← h6]
-    exact h1 (s - 1) h4
+    by_cases h4 : s > t
+    · simp [ih, h4]
+    · have h5 := Eq.symm (Nat.eq_of_lt_succ_of_not_lt h3 h4)
+      rw [h5]
+
+theorem We_finite_TFAE (e : ℕ) :
+    [(W e).Finite,                          --1
+      ∃ t, ∀ s > t, PhiNew e s = ∅,         --2
+      ∃ t, ∀ s > t, W_s e s = W_s e t,      --3
+      ∃ t, W e = W_s e t,                   --4
+      ∃ t, ∀ s > t, enter_queue e s = [],   --5
+      ∃ t, ∀ s > t, Wenum e s = Option.none --6
+    ].TFAE := by
+  tfae_have 1 → 5 := queue_depletes
+  tfae_have 5 → 2 := queue_depletes_implies_PhiNew_stabilizes
+  tfae_have 2 → 3 := WsNew_stabilizes_Ws_stabilizes e
+  tfae_have 3 → 4 := Ws_stabilizes_implies_We_eq_Ws
+  tfae_have 4 → 1 := We_finite_iff_We_eq_Ws
+  tfae_have 1 ↔ 6 := Wenum_finite_iff e
+  tfae_finish
