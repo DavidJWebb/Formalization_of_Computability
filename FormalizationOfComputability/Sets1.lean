@@ -164,12 +164,13 @@ theorem cofinite (hX : Xᶜ.Finite) : set X := compl_iff.mpr (finite hX)
 
 /-- The primitive recursive sets are closed under symmetric difference -/
 theorem symmdiff (hX : set X) (hY : set Y) [DecidablePred fun x ↦ x ∈ X ∆ Y] : set (X ∆ Y) := by
-  apply union
   refine set_iff_exists.mpr ?_
   rw [symmDiff_def]
-
-  apply union
-  <;> simp [sdiff, hX, hY]
+  use λ x ↦ (x ∈ (X ∩ Yᶜ) ∪ (Y ∩ Xᶜ))
+  simp
+  refine cond (Primrec₂.comp .and hX ?_) (const true) (Primrec₂.comp .and hY ?_)
+  exact cond hY (const false) (const true)
+  exact cond hX (const false) (const true)
 
 end Primrec
 
