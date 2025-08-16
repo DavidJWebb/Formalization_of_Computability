@@ -6,6 +6,7 @@ Authors: David J. Webb
 import Mathlib.Computability.Halting
 import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Order.ConditionallyCompleteLattice.Basic
+import Mathlib.Order.Preorder.Finite
 
 /-!
 # Sets for Computability Theory
@@ -86,8 +87,10 @@ namespace Primrec
 
 open Primrec
 
+
+variable {X Y : Set ℕ}
 /-- Primitive recursive subsets of ℕ are those with primitive recursive characteristic functions -/
-def set (X: Set ℕ) : Prop := ∃ (f : ℕ → Bool), Primrec f ∧ ∀ x, x ∈ X ↔ f x = true
+def set (X : Set ℕ) : Prop := (∃ (f : ℕ → Bool), Primrec f ∧ ∀ x, x ∈ X ↔ f x = true)
 
 /-- ℕ is primitive recursive -/
 theorem nat : set (univ : Set ℕ) := by
@@ -106,8 +109,6 @@ theorem singleton (a : ℕ) : set ({a} : Set ℕ) := by
   · apply cond (PrimrecRel.comp .eq .id (const a)) (const true) (const false)
   · simp
 
-variable {X Y : Set ℕ}
-
 /-- The primitive recursive sets are closed under union -/
 theorem union (hX : set X) (hY : set Y) : set (X ∪ Y) := by
   obtain ⟨f, ⟨fPrim, hX⟩⟩ := hX
@@ -118,6 +119,7 @@ theorem union (hX : set X) (hY : set Y) : set (X ∪ Y) := by
   · intro x
     apply Iff.trans (mem_union x X Y)
     simp [hX, hY]
+
 
 /-- The primitive recursive sets are closed under complement -/
 theorem compl (hX : set X) : set Xᶜ := by
@@ -131,35 +133,33 @@ theorem compl (hX : set X) : set Xᶜ := by
 theorem compl_iff : set X ↔ set Xᶜ := by
   constructor
   · exact compl
-  · rw [← compl_compl X, compl_compl]
-    exact compl
+  · intro h
+    apply compl at h
+    simp only [compl_compl] at h
+    exact h
 
 /-- The primitive recursive sets are closed under intersection -/
 theorem inter (hX : set X) (hY : set Y) : set (X ∩ Y) := by
   rw [← compl_compl X, ← compl_compl Y, ← compl_union]
-  refine compl (union (compl hX) (compl hY))
+  exact compl (union (compl hX) (compl hY))
 
 /-- The primitive recursive sets are closed under set difference -/
-theorem sdiff (hX : set X) (hY : set Y) : set (X \ Y) := inter hX (compl hY)
+theorem sdiff (hX : set X) (hY : set Y) : set (X \ Y) := by
+  apply inter hX (compl hY)
 
 /-- Finite sets are primitive recursive -/
 theorem finite (h : X.Finite) : set X := by
   obtain ⟨X, rfl⟩ := Finite.exists_finset_coe h
-  induction' X using Finset.induction_on' with a S _ _ _ hSPrim
+  induction' X using Finset.induction_on' with a S _ _ _ hPrim
   · simp only [Finset.coe_empty, empty_set]
   · rw [Finset.coe_insert, insert_eq]
-    exact union (singleton a) (hSPrim (Finite.of_fintype S))
+    exact union (singleton a) (hPrim (Finite.of_fintype S))
 
 /-- Cofinite sets are primitive recursive -/
-theorem cofinite (hX : Xᶜ.Finite) : set X := by
-  obtain ⟨Xc, hXc⟩ := Finite.exists_finset_coe hX
-  apply compl_iff.mpr
-  rw [← hXc]
-  exact finite (Finset.finite_toSet Xc)
+theorem cofinite (hX : Xᶜ.Finite) : set X := compl_iff.mpr (finite hX)
 
 /-- The primitive recursive sets are closed under symmetric difference -/
 theorem symmdiff (hX : set X) (hY : set Y) : set (X ∆ Y) := by
-  rw [symmDiff_def]
   apply union
   <;> simp [sdiff, hX, hY]
 
@@ -269,16 +269,16 @@ theorem Sdiff_by_computable (hX : set X) (hY : Computable.set Y) : set (X \ Y) :
 /-- If X=*Y and X is partial recursive, then Y is partial recursive -/
 theorem partrec_set_eq_star (hXY : X =* Y) (hX : set X) : set Y := by
   have hY : Y = (X ∪ (Y\X))\(X\Y) := by
-    simp only [hXY, union_diff_self, diff_diff_right, union_inter_cancel_right,
+    simp only [union_diff_self, diff_diff_right, union_inter_cancel_right,
       union_diff_distrib, sdiff_self, bot_eq_empty, empty_union]
     rw [union_eq_self_of_subset_left]
     exact diff_subset
   rw [hY]
   apply Sdiff_by_computable
   · apply union hX (computable (Computable.primrec (Primrec.finite (Finite.Set.subset hXY.toFinset ?_))))
-    simp [hXY, symmDiff_def]
+    simp [symmDiff_def]
   · apply Computable.primrec (Primrec.finite (Finite.Set.subset hXY.toFinset ?_))
-    simp [hXY, Set.symmDiff_def]
+    simp [Set.symmDiff_def]
 
 /-- If X=*Y, then X is partial recursive iff Y is -/
 theorem partrec_set_eq_star_iff (hXY : X =* Y) : set X ↔ set Y := by
