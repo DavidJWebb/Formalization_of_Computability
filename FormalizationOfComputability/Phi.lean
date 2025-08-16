@@ -3,7 +3,6 @@ Copyright (c) 2025 David J. Webb. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
-import FormalizationOfComputability.PrimRecFilter
 import FormalizationOfComputability.Sets
 import Mathlib.Tactic.Linarith
 /-
@@ -27,8 +26,8 @@ modified to match common computability theory notation.
 
 namespace Computability
 
-abbrev Delta01 := computable_set
-abbrev Sigma01 := partrec_set
+abbrev Delta01 := Computable.set
+abbrev Sigma01 := Partrec.set
 
 open Nat
 open Nat.Partrec
@@ -73,7 +72,7 @@ lemma encode_ofNatCode : ∀ n, encodeCode (ofNatCode n) = n
     conv_rhs => rw [← bit_decomp n, ← bit_decomp n.div2]
     simp only [ofNatCode.eq_5]
     cases n.bodd <;> cases n.div2.bodd <;>
-      simp [m, encodeCode, ofNatCode, IH, IH1, IH2, bit_val]
+      simp [m, encodeCode, IH, IH1, IH2, bit_val]
 
 /- ϕₑ,ₛ(n), the eth Turing program evaluated for s steps on input n.
 Following Soare, we require the index, input, and output to be less than s -/
@@ -149,11 +148,21 @@ lemma stage_zero_diverges : ¬ Phi_s_halts e 0 n := by
 
 open Primrec
 
+-- a helper lemma for showing that phi_s is primitive recursive
+private lemma bounded_exists (f : ℕ → ℕ → Prop) (s : ℕ) [DecidableRel f]
+    (hf : PrimrecRel f) :
+    PrimrecPred (λ n => ∃ y < s, (f y n)) := by
+  have h1 : (λ n => decide (∃ y < s, f y n)) =
+            (λ n => decide ((List.range s).filter (fun y => f y n) ≠ [])) := by simp
+  simp [PrimrecPred, h1]
+  apply PrimrecPred.not
+  apply PrimrecRel.comp Primrec.eq (PrimrecPred.listFilter_listRange s hf) (const [])
+
 /- ϕₑ,ₛ is a primitive recursive function -/
 lemma phi_s_primrec : Primrec (Phi_s e s) := by
   have h := primrec_evaln.comp (pair (pair (const s) (const (ofNatCode e))) .id)
   apply ite (PrimrecPred.and (PrimrecRel.comp nat_lt (const e) (const s)) ?_) h (const Option.none)
-  apply PrimrecPred.bounded_exists
+  apply bounded_exists
   simp only [PrimrecRel, Primrec₂, Option.mem_def]
   exact PrimrecRel.comp .eq (.comp h snd) (option_some_iff.mpr fst)
 
@@ -168,7 +177,7 @@ lemma phi_s_halts_primrec : PrimrecPred (Phi_s_halts e s) := by
     · simp_all
   unfold Phi_s_halts
   simp only [PrimrecPred, Option.mem_def, h]
-  apply PrimrecPred.bounded_exists
+  apply bounded_exists
   apply PrimrecRel.comp₂ .eq (comp₂ (phi_s_primrec) (Primrec₂.right))
   exact comp₂ option_some Primrec₂.left
 
@@ -179,8 +188,8 @@ theorem phi_partrec : Nat.Partrec (Phi e) := by
   use ofNatCode e
 
 /- The Wₑ,ₛ are primitive recursive-/
-lemma W_s_Primrec : primrec_set (W_s e s) := by
-  simp only [primrec_set, W_s, Finset.coe_filter, Finset.mem_range, Set.mem_setOf_eq]
+lemma W_s_Primrec : Primrec.set (W_s e s) := by
+  simp only [Primrec.set, W_s, Finset.coe_filter, Finset.mem_range, Set.mem_setOf_eq]
   use Phi_s_halts e s
   constructor
   · exact Primrec.ite (phi_s_halts_primrec) (const true) (const false)
