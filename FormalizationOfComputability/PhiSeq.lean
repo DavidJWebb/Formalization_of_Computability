@@ -41,6 +41,7 @@ lemma PhiNew_mem_lemma (e s x : ℕ) :
   simp [PhiNew, PhiNewList]
 
 /- The elements newly halting at stage s are exactly W_{e, s} \ W_{e, s-1} -/
+@[grind]
 lemma PhiNew_eq_Ws_diff (e s : ℕ) : (PhiNew e s) = (W_s e s) \ (W_s e (s-1)) := by
   simp [PhiNew, W_s]
   apply subset_antisymm
@@ -102,23 +103,11 @@ lemma PhiNew_runtime_iff (e x r : ℕ) : x ∈ PhiNew e r ↔ r ∈ runtime e x 
   · rw [runtime_is_min] at h
     rw [PhiNew_eq_Ws_diff]
     simp only [W_s, Finset.mem_sdiff, Finset.mem_filter, Finset.mem_range, not_and]
-    have h1 : x < r + 1 := by
-      apply halt_input_bound
-      apply phi_halts_mono
-      · linarith
-      · exact h.left
     constructor
     · constructor
-      · apply halt_input_bound
-        exact h.left
+      · apply halt_input_bound h.left
       · exact h.left
-    · intro h2
-      apply Nat.ne_zero_of_lt at h2
-      cases' r with r
-      · tauto
-      · simp only [add_tsub_cancel_right]
-        apply h.right
-        linarith
+    · grind
 
 /- W_e can be created as a disjoint union of new elements-/
 lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (PhiNew e s) := by
@@ -170,7 +159,7 @@ lemma We_finite_implies_PhiNew_stabilizes (e : ℕ) (h : (W e).Finite) :
     · use Finset.max' P (Finset.nonempty_iff_ne_empty.mpr h2)
       intro s h3
       contrapose h3
-      simp only [gt_iff_lt, Finset.max'_lt_iff, not_forall, Classical.not_imp, not_lt]
+      simp only [gt_iff_lt, Finset.max'_lt_iff, not_forall, not_lt]
       use s
       simp only [le_refl, exists_prop, and_true, h1, Set.mem_setOf_eq]
       exact Finset.nonempty_iff_ne_empty.mpr h3
@@ -189,7 +178,8 @@ lemma We_finite_iff_PhiNew_stabilizes (e : ℕ) :
 
 /- x appears as a new element at its runtime -/
 lemma PhiNew_runtime (y e s : ℕ) : y ∈ PhiNew e s ↔ s ∈ runtime e y := by
-  simp [runtime, rfindOpt]
+  simp only [runtime, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, Bool.false_eq,
+    Option.isSome_eq_false_iff, Option.isNone_iff_eq_none]
   constructor
   <;> simp_all only [PhiNew_mem_lemma]
   · intro ⟨h, ⟨h1, h2⟩⟩
@@ -197,7 +187,6 @@ lemma PhiNew_runtime (y e s : ℕ) : y ∈ PhiNew e s ↔ s ∈ runtime e y := b
     · obtain ⟨x, h1⟩ := h1
       exact Option.isSome_of_mem h1
     · intro m hm
-      have h3 := halt_input_bound h1
       apply phi_halts_mono_reverse at h2
       · unfold Phi_s_halts at h2
         push_neg at h2
@@ -210,11 +199,7 @@ lemma PhiNew_runtime (y e s : ℕ) : y ∈ PhiNew e s ↔ s ∈ runtime e y := b
     · constructor
       · exact h
       · unfold Phi_s_halts
-        push_neg
-        intro x
-        by_cases h2 : s=0
-        · simp [h2, Phi_s]
-        · simp [h1, sub_one_lt, h2]
+        grind [Phi_s]
 
 /- The elements in W_e enumerated up to stage s, in the order they appeared -/
 def WPrefix (e : ℕ) : ℕ → List ℕ
@@ -240,10 +225,9 @@ lemma Ws_eq_prefix (e s : ℕ) : W_s e s = (WPrefix e s).toFinset := by
         · exact h.right
         · have h2 : Phi_s_halts e s y → y < s := halt_input_bound
           simp only [W_s, Finset.mem_filter, Finset.mem_range, not_and] at h1
-          simp only [add_tsub_cancel_right]
-          tauto
+          grind
     · intro x h
-      simp [WPrefix, PhiNew, W_s] at h
+      simp [WPrefix] at h
       rw [PhiNewList_mem, ← mem_toFinset, ← hs] at h
       simp only [W_s, Finset.mem_filter, Finset.mem_range]
       simp only [W_s, Finset.mem_filter, Finset.mem_range] at h
@@ -251,11 +235,7 @@ lemma Ws_eq_prefix (e s : ℕ) : W_s e s = (WPrefix e s).toFinset := by
       · constructor
         · linarith
         · exact phi_halts_mono (Nat.le_add_right s 1) h.right
-      · rw [PhiNew_eq_Ws_diff] at h
-        simp only [W_s, add_tsub_cancel_right, Finset.mem_sdiff, Finset.mem_filter,
-          Finset.mem_range, not_and] at h
-        constructor
-        <;> simp [h]
+      · grind
 
 lemma WPrefix_mem (e s n : ℕ) : n ∈ WPrefix e s ↔ n ∈ W_s e s := by
   rw [← mem_toFinset, Ws_eq_prefix]
@@ -387,7 +367,9 @@ lemma enter_queue_nodup_elements (h : (enter_queue e s)[k]? = some n) (h1 : i �
   apply List.getElem?_inj at h3
   · tauto
   · rw [h] at h3
-    refine List.isSome_getElem?.mp (Option.isSome_of_mem h3)
+    sorry
+
+
   · exact enter_queue_nodup e s
 
 /- If n is not the head of an queue, then at the next step its index decreases by 1. -/
@@ -400,7 +382,7 @@ lemma enter_queue_dec_stage (h : n ∈ (enter_queue e s).tail) :
     rw [index_tail] at h
     obtain ⟨k, ⟨h, h1⟩⟩ := h
     rw [← idxOf?_getElem?_iff] at h1
-    · simp_all only [Option.map_some]
+    · simp_all only [ge_iff_le]
       have h3 : some k = idxOf? n ([a] ++ T) := by exact h1
       rw [List.idxOf?_append] at h3
       have h4 : n ∈ (a :: T).tail := by
@@ -410,7 +392,7 @@ lemma enter_queue_dec_stage (h : n ∈ (enter_queue e s).tail) :
       have h5 : n ≠ a := by
         contrapose h
         simp only [ne_eq, Decidable.not_not] at h
-        simp only [ge_iff_le, not_le, lt_one_iff]
+        simp only [not_le, lt_one_iff]
         apply List.getElem?_inj (idxOf?_length h1)
         · rw [← hL]
           exact enter_queue_nodup e s
@@ -460,8 +442,7 @@ lemma enter_queue_dec (h : List.idxOf? n (enter_queue e s) = some k) (h1 : l ≤
 lemma enter_queue_enum_exact (h : List.idxOf? n (enter_queue e s) = some k) :
     new_element e (s+k) = n := by
   have h1 : k ≤ k := by rfl
-  apply enter_queue_dec at h
-  apply h at h1
+  apply enter_queue_dec h at h1
   simp only [tsub_self] at h1
   obtain ⟨_, h1⟩ := h1
   rw [eq_comm, new_element, index_head, ← idxOf?_getElem?_iff]
@@ -559,10 +540,7 @@ lemma queue_depletes (h : (W e).Finite) :
     exact hxk k1
   have hs : s ≥ t := by linarith
   have hs1 := enter_queue_PhiNewList e hs
-  have hi : ∀ i, PhiNew e (t+i+1) = ∅ := by
-    intro i
-    apply h
-    linarith
+  have hi : ∀ i, PhiNew e (t+i+1) = ∅ := by grind
   have hi1 : ∀ i, PhiNewList e (t+i+1) = [] := by
     intro i
     rw [← toFinset_eq_empty_iff]
@@ -653,7 +631,7 @@ lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s > t, PhiNew e s
       apply h at h1
       rw [PhiNew_eq_Ws_diff] at h1
       simp at h1
-      exact subset_antisymm h1 (W_s_mono_reverse (Nat.le_add_right s 1))
+      exact subset_antisymm h1 (W_s_mono (Nat.le_add_right s 1))
   induction' s with s ih
   · tauto
   · intro h2
