@@ -111,6 +111,7 @@ instance (e s n : ℕ) : Decidable (Phi_s_halts e s n) := by
   exact instDecidableAnd
 
 /- Wₑ,ₛ = the domain of ϕₑ,ₛ. As all inputs n ≥ s do not halt, this set is necessarily finite. -/
+@[grind]
 def W_s (e s : ℕ): Finset ℕ :=
   (Finset.range s).filter (Phi_s_halts e s)
 
@@ -131,20 +132,15 @@ lemma halt_input_bound (h : Phi_s_halts e s n) :
 lemma halt_output_bound (h : y ∈ (Phi_s e s n)) :
   y < s := by
   simp only [Phi_s, Option.mem_def, Option.ite_none_right_eq_some] at h
-  obtain ⟨⟨_, ⟨_, ⟨_, _⟩⟩⟩, _⟩ := h
-  simp_all
+  grind
 
 /- If ϕₑ,ₛ(n)↓, then e < s -/
-lemma halt_index_bound (h : Phi_s_halts e s n) : e < s := by simp_all [Phi_s_halts, Phi_s]
+lemma halt_index_bound (h : Phi_s_halts e s n) : e < s := by grind [Phi_s_halts, Phi_s]
 
 /- Helper lemmas - ϕ_{e, 0}(n)↑ -/
-lemma halt_stage_gt_zero (h : Phi_s_halts e s n) : s > 0 := by
-  simp only [Phi_s_halts, Phi_s, Option.mem_def, Option.ite_none_right_eq_some,
-    exists_and_left] at h
-  linarith
+lemma halt_stage_gt_zero (h : Phi_s_halts e s n) : s > 0 := by grind [Phi_s_halts, Phi_s]
 
-lemma stage_zero_diverges : ¬ Phi_s_halts e 0 n := by
-  simp [Phi_s_halts, Phi_s]
+lemma stage_zero_diverges : ¬ Phi_s_halts e 0 n := by grind [Phi_s_halts, Phi_s]
 
 open Primrec
 
@@ -193,19 +189,16 @@ lemma W_s_Primrec : Primrec.set (W_s e s) := by
   use Phi_s_halts e s
   constructor
   · exact Primrec.ite (phi_s_halts_primrec) (const true) (const false)
-  · simp only [decide_eq_true_eq, and_iff_right_iff_imp]
-    intro x
-    exact halt_input_bound
+  · grind [halt_input_bound]
 
 /- The Wₑ are Σ01 -/
 lemma W_Sigma01 (e : ℕ) : Sigma01 (W e) := by
   use λ n ↦ (Phi e n).map (λ _ => ())
   constructor
-  · refine Partrec.map ?_ ?_
+  · refine Partrec.map ?_ (Primrec₂.to_comp (Primrec₂.const ()))
     constructor
     · exact phi_partrec
     · exact Partrec.nat_iff.mp (Computable.partrec Computable.id)
-    · exact Primrec₂.to_comp (Primrec₂.const ())
   · rfl
 
 /- Sigma01 sets can be written as Wₑ -/
@@ -223,10 +216,7 @@ lemma Sigma01_is_W (h : Sigma01 X) : ∃ e, X = W e := by
   exact congrArg PFun.Dom (id (Eq.symm h3))
 
 /- The Σ01 sets are exactly the Wₑ -/
-lemma Sigma01_iff_W : Sigma01 X ↔ ∃ e, X = W e := by
-  constructor
-  · exact Sigma01_is_W
-  · simp_all [W_Sigma01]
+lemma Sigma01_iff_W : Sigma01 X ↔ ∃ e, X = W e := by grind [Sigma01_is_W, W_Sigma01]
 
 /- Monotonicity of halting: if s < t and ϕ_{e,s}(n)↓, then ϕ_{e,t}(n)↓ -/
 lemma phi_halts_mono (h : s ≤ t) (h1 : Phi_s_halts e s n) : Phi_s_halts e t n := by
@@ -300,8 +290,7 @@ lemma phi_halts_stage_exists : Phi_halts e n ↔ ∃ s, Phi_s_halts e s n := by
       apply evaln_mono
       · linarith -- k < e+x+k+1
       · exact h
-  · intro ⟨s, ⟨⟨_, ⟨_, ⟨_, _⟩⟩⟩, ⟨x, _⟩⟩⟩
-    use x, s
+  · grind
 
 /- ϕₑ(n)↓ iff there is a *least* stage s at which ϕₑ,ₛ(n)↓ -/
 lemma phi_halts_runtime_exists : Phi_halts e n ↔ ∃ r, r ∈ runtime e n := by
@@ -336,34 +325,15 @@ lemma W_s_Phi_s : n ∈ W_s e s ↔ Phi_s_halts e s n := by
   apply halt_input_bound
   exact ⟨x, h⟩
 
-lemma Ws_gt_zero : n ∈ W_s e s → s > 0 := by
-  rw [W_s_Phi_s]
-  apply halt_stage_gt_zero
+lemma Ws_gt_zero : n ∈ W_s e s → s > 0 := by grind [W_s_Phi_s, halt_stage_gt_zero]
 
-lemma Ws_zero_empty : W_s e 0 = ∅ := by
-  ext n
-  rw [W_s_Phi_s]
-  simp [stage_zero_diverges]
+lemma Ws_zero_empty : W_s e 0 = ∅ := by grind [W_s_Phi_s, stage_zero_diverges]
 
 /- ϕₑ(x)↓ ↔ x ∈ Wₑ -/
 lemma mem_W_phi : n ∈ W e ↔ Phi_halts e n := Part.dom_iff_mem
 
 /- W_{s} ⊆ W_{e, s+1}  -/
-lemma W_s_mono (h : s ≤ t) : (W_s e s) ⊆ (W_s e t) := by
-  intro x
-  simp only [W_s, Finset.mem_filter, Finset.mem_range, and_imp]
-  intro h1 h2
-  constructor
-  · linarith
-  · exact phi_halts_mono h h2
-
-lemma W_s_mono_reverse (h : t ≤ s) : (W_s e t) ⊆ (W_s e s) := by
-  intro x
-  simp [W_s]
-  intro h1 h2
-  constructor
-  · linarith
-  · exact phi_halts_mono h h2
+lemma W_s_mono (h : s ≤ t) : (W_s e s) ⊆ (W_s e t) := by grind [W_s, phi_halts_mono]
 
 /- Membership in some W_{e,s} implies runtime r exists, and membership in W_{e, r+1}-/
 lemma Ws_runtime (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n ∧ n ∈ W_s e r := by
@@ -393,18 +363,16 @@ lemma W_s_subset_W : (W_s e s).toSet ⊆ W e := by
 
 /- Wₑ = ⋃ₛ Wₑ,ₛ -/
 lemma W_mem_iff_W_s : n ∈ W e ↔ ∃ s, n ∈ W_s e s :=by
-constructor
-· intro h
-  apply Part.dom_iff_mem.mp at h
-  rw [← Phi_halts, phi_halts_stage_exists] at h
-  obtain ⟨s, h⟩ := h
-  simp only [W_s_Phi_s]
-  exact ⟨s, h⟩
-· intro h
-  obtain ⟨s, h⟩ := h
-  exact W_s_subset_W h
+  constructor
+  · intro h
+    apply Part.dom_iff_mem.mp at h
+    rw [← Phi_halts, phi_halts_stage_exists] at h
+    obtain ⟨s, h⟩ := h
+    simp only [W_s_Phi_s]
+    exact ⟨s, h⟩
+  · grind [W_s_subset_W]
 
 lemma W_eq_union_W_s : W e = ⋃ (s : ℕ), W_s e s := by
-ext x
-rw [W_mem_iff_W_s]
-simp
+  ext x
+  rw [W_mem_iff_W_s]
+  simp
