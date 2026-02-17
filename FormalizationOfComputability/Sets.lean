@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
 import Mathlib.Computability.Halting
+import Mathlib.Computability.Primrec.Basic
+import Mathlib.Computability.Primrec.List
 import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Order.ConditionallyCompleteLattice.Basic
 import Mathlib.Order.Preorder.Finite
@@ -106,7 +108,8 @@ theorem empty_set : set (∅ : Set ℕ) := by
 theorem singleton (a : ℕ) : set ({a} : Set ℕ) := by
   use fun n ↦ bif n = a then true else false
   constructor
-  · apply cond (PrimrecRel.comp .eq .id (const a)) (const true) (const false)
+  · apply cond (_) (const true) (const false)
+    exact PrimrecPred.decide (PrimrecRel.comp Primrec.eq Primrec.id (const a))
   · simp
 
 /-- The primitive recursive sets are closed under union -/
@@ -150,10 +153,11 @@ theorem sdiff (hX : set X) (hY : set Y) : set (X \ Y) := by
 /-- Finite sets are primitive recursive -/
 theorem finite (h : X.Finite) : set X := by
   obtain ⟨X, rfl⟩ := Finite.exists_finset_coe h
-  induction' X using Finset.induction_on' with a S _ _ _ hPrim
+  induction X using Finset.induction_on with | empty | insert a b S hPrim
   · simp only [Finset.coe_empty, empty_set]
   · rw [Finset.coe_insert, insert_eq]
-    exact union (singleton a) (hPrim (Finite.of_fintype S))
+    simp
+    exact union (singleton a) (hPrim (Finite.of_fintype _))
 
 /-- Cofinite sets are primitive recursive -/
 theorem cofinite (hX : Xᶜ.Finite) : set X := compl_iff.mpr (finite hX)
