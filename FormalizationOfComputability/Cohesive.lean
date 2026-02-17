@@ -12,8 +12,8 @@ import Mathlib.Tactic.Linarith
 
 namespace Computability
 
-abbrev Delta01 := computable_set
-abbrev Sigma01 := partrec_set
+abbrev Delta01 := Computable.set
+abbrev Sigma01 := Partrec.set
 
 def Coinfinite (X : Set ℕ) : Prop := Xᶜ.Infinite
 def Inf_coinf (X : Set ℕ) : Prop := X.Infinite ∧ Coinfinite X
@@ -50,25 +50,25 @@ lemma odds_infinite : Odds.Infinite := by
 
 open Primrec
 
-lemma primrec_set_evens : primrec_set Evens := by
+lemma Primrec.set_evens : Primrec.set Evens := by
   let f: ℕ → Bool := fun x => decide (x % 2 = 0)
   use f
   constructor
-  · apply Primrec.ite (PrimrecRel.comp .eq ?_ (.const 0)) (.const true) (.const false)
+  · apply Primrec.ite (PrimrecRel.comp Primrec.eq ?_ (.const 0)) (.const true) (.const false)
     exact Primrec₂.comp .nat_mod .id (const 2)
   · intro x
     simp [f, Evens]
 
-lemma set_delta01_evens : computable_set Evens := primrec_set.computable primrec_set_evens
+lemma set_delta01_evens : Computable.set Evens := Computable.primrec Primrec.set_evens
 
-lemma set_sigma01_evens : Sigma01 Evens := computable_set.partrec set_delta01_evens
+lemma set_sigma01_evens : Sigma01 Evens := Partrec.computable set_delta01_evens
 
 def Pi01 (X : Set ℕ): Prop := Sigma01 Xᶜ
 
-theorem delta01_is_sigma01 (X : Set ℕ) (h: Delta01 X) : Sigma01 X := computable_set.partrec h
+theorem delta01_is_sigma01 (X : Set ℕ) (h: Delta01 X) : Sigma01 X := Partrec.computable h
 
 theorem delta01_is_pi01 (X : Set ℕ) (h: Delta01 X) : Pi01 X :=
-  computable_set.partrec (computable_set.Compl h)
+  Partrec.computable (Computable.compl h)
 
 theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧ Pi01 X := by
   constructor
@@ -89,12 +89,12 @@ theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧
 theorem set_pi01_union (X Y : Set ℕ) (hX : Pi01 X) (hY : Pi01 Y) : Pi01 (X∪Y) := by
   unfold Pi01
   rw [Set.compl_union]
-  exact partrec_set.Inter hX hY
+  exact Partrec.inter hX hY
 
 theorem set_pi01_inter (X Y : Set ℕ) (hX : Pi01 X) (hY : Pi01 Y) : Pi01 (X∩Y) := by
   unfold Pi01
   rw [Set.compl_inter]
-  exact partrec_set.Union hX hY
+  exact Partrec.union hX hY
 
 -- sigma01_compl_iff_pi01
 -- pi01_compl_iff sigma01
@@ -102,7 +102,7 @@ theorem set_pi01_inter (X Y : Set ℕ) (hX : Pi01 X) (hY : Pi01 Y) : Pi01 (X∩Y
 -- set_pi01_sdiff_computable
 
 theorem finite_set_pi01 (X : Set ℕ) (h: Finite X) : Pi01 X:= by
-apply cofinite_partrec_set
+apply Partrec.cofinite
 rw [compl_compl]
 exact h
 
@@ -141,8 +141,8 @@ lemma immune_is_coinf (X : Set ℕ) (hX : Immune X) : Coinfinite X := by
     constructor
     · simp [Coinfinite] at h1
       rw [← Set.finite_coe_iff] at h1
-      apply finite_computable_set at h1
-      rw [computable_set.Compl_iff, compl_compl] at h1
+      apply Computable.finite at h1
+      rw [Computable.compl_iff, compl_compl] at h1
       constructor
       · exact h1
       · exact hInf
@@ -191,37 +191,32 @@ def CEMaximal (M : Set ℕ) : Prop := Sigma01 M ∧
 def Cohesive (C : Set ℕ) : Prop := ∀ (X : Set ℕ), (Sigma01 X) → ((X∩C).Finite  ∨ (Xᶜ∩C).Finite)
 
 lemma cohesive_is_coinf (C : Set ℕ) (hC : Cohesive C) : Coinfinite C := by
-  by_contra h1
-  simp [Coinfinite] at h1
-  revert hC
-  simp
+  contrapose hC
+  unfold Coinfinite at hC
+  rw [Set.not_infinite] at hC
   unfold Cohesive
   push_neg
   use Evens
   constructor
   · exact set_sigma01_evens
   · constructor
-    · rw [← Set.not_infinite, not_not, infinite_eq_star_iff]
-      · exact evens_infinite
-      · unfold eq_star
-        rw [Set.symmDiff_def]
-        simp only [Set.diff_self_inter, Set.finite_union]
+    · have h : eq_star Evens (Evens ∩ C) := by
+        unfold eq_star
+        simp [Set.symmDiff_def]
         constructor
-        · rw [Set.diff_eq_empty.mpr]
-          <;> simp
-        · apply Set.Finite.subset h1 (Set.diff_subset_compl Evens C)
-    · rw [← Set.not_infinite, not_not, infinite_eq_star_iff]
-      · exact odds_infinite
-      · unfold eq_star
-        rw [Set.symmDiff_def]
-        simp
+        · exact Set.Finite.subset hC (Set.diff_subset_compl Evens C)
+        · rw [Set.inter_diff_assoc Evens]
+          simp
+      exact infinite_eq_star h evens_infinite
+    · rw [odds_eq_evens_compl.symm]
+      have h : eq_star Odds (Odds ∩ C) := by
+        unfold eq_star
+        simp [Set.symmDiff_def]
         constructor
-        · rw [← Set.inter_comm C, odds_eq_evens_compl]
-          simp [sdiff_compl, Set.inf_eq_inter, Set.inter_assoc]
-        · apply Set.Finite.subset h1
-          rw [odds_eq_evens_compl]
-          simp only [Set.diff_self_inter]
-          exact Set.diff_subset_compl Evensᶜ C
+        · exact Set.Finite.subset hC (Set.diff_subset_compl Odds C)
+        · rw [Set.inter_diff_assoc Odds]
+          simp
+      exact infinite_eq_star h odds_infinite
 
 lemma cohesive_is_not_sigma01 (C : Set ℕ) (hC : Cohesive C) (hCInf : C.Infinite) : ¬ Sigma01 C := by
   by_contra h1
@@ -234,7 +229,7 @@ lemma cohesive_is_not_sigma01 (C : Set ℕ) (hC : Cohesive C) (hCInf : C.Infinit
   rw [hYC]
   simp
   constructor
-  · rw [← Set.not_infinite, not_not]
+  · rw [← Set.not_finite]
     exact hYInf
   · rw [← Set.diff_eq_compl_inter]
     exact hY2
@@ -244,7 +239,7 @@ theorem cemaximal_iff_compl_cohesive (M : Set ℕ) (hM: Sigma01 M) :
   constructor
   · intro h W hW
     have hXuM : Sigma01 (M∪W) := by
-      exact partrec_set.Union hM hW
+      exact Partrec.union hM hW
     have h1 : W ∩ Mᶜ = (W ∪ M)\ M := by
       rw [Set.union_diff_right]
       exact rfl
@@ -295,7 +290,7 @@ lemma coh_is_immune (C : Set ℕ) (hC : Cohesive C) : Immune C := by
         · rw [Set.diff_eq_empty.mpr h]
           simp
         · exact hY
-      apply partrec_set_eq_star at hY2
+      apply Partrec.eq_star at hY2
       apply cohesive_is_not_sigma01 at hC
       revert hC
       simp

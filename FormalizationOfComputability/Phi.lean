@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
 import FormalizationOfComputability.Sets
+import Mathlib.Computability.Primrec.List
 import Mathlib.Tactic.Linarith
 /-
 # ϕₑ and Wₑ
@@ -69,7 +70,7 @@ lemma encode_ofNatCode : ∀ n, encodeCode (ofNatCode n) = n
     have IH := encode_ofNatCode m
     have IH1 := encode_ofNatCode m.unpair.1
     have IH2 := encode_ofNatCode m.unpair.2
-    conv_rhs => rw [← bit_decomp n, ← bit_decomp n.div2]
+    conv_rhs => rw [← bit_bodd_div2 n, ← bit_bodd_div2 n.div2]
     simp only [ofNatCode.eq_5]
     cases n.bodd <;> cases n.div2.bodd <;>
       simp [m, encodeCode, IH, IH1, IH2, bit_val]
@@ -95,12 +96,16 @@ def Phi_s_halts (e s n : ℕ) : Prop :=
 def Phi_halts (e n : ℕ) : Prop :=
     ∃ x, x ∈ Phi e n
 
+private lemma helperlemma (x : ℕ) : Option.none = some x → False := by
+    intro h
+    simp_all only [reduceCtorEq]
+
 instance (e s n : ℕ) : Decidable (∃ x, x ∈ Phi_s e s n) := by
   simp only [Phi_s, Option.mem_def, Option.ite_none_right_eq_some, exists_and_left]
   have h : Decidable (∃ x, evaln s (ofNatCode e) n = some x) := by
      match evaln s (ofNatCode e) n with
     | some x        => exact isTrue ⟨x, rfl⟩
-    | Option.none   => exact isFalse (λ ⟨x, h⟩ => Option.noConfusion h)
+    | Option.none   => exact isFalse (λ ⟨x, h⟩ => (helperlemma x h))
   exact instDecidableAnd
 
 /- ϕₑ,ₛ(n) is decidable -/
@@ -109,7 +114,7 @@ instance (e s n : ℕ) : Decidable (Phi_s_halts e s n) := by
   have h : Decidable (∃ x, evaln s (ofNatCode e) n = some x) := by
      match evaln s (ofNatCode e) n with
     | some x        => exact isTrue ⟨x, rfl⟩
-    | Option.none   => exact isFalse (λ ⟨x, h⟩ => Option.noConfusion h)
+    | Option.none   => exact isFalse (λ ⟨x, h⟩ => (helperlemma x h))
   exact instDecidableAnd
 
 /- Wₑ,ₛ = the domain of ϕₑ,ₛ. As all inputs n ≥ s do not halt, this set is necessarily finite. -/
@@ -124,7 +129,7 @@ def W (e : ℕ) : Set ℕ := (Phi e).Dom
 variable {e s t n x y : ℕ} {X : Set ℕ}
 
 /- If ϕₑ,ₛ(n)↓, then n < s -/
-@[grind, simp]
+@[grind →, simp]
 lemma halt_input_bound (h : Phi_s_halts e s n) : n < s := by
   simp only [Phi_s_halts, Phi_s, Option.mem_def, Option.ite_none_right_eq_some,
     exists_and_left] at h
@@ -132,20 +137,20 @@ lemma halt_input_bound (h : Phi_s_halts e s n) : n < s := by
   exact Code.evaln_bound hx
 
 /- If ϕₑ,ₛ(n) = y, then y < s -/
-@[grind, simp]
+@[grind →, simp]
 lemma halt_output_bound (h : y ∈ (Phi_s e s n)) : y < s := by
   simp only [Phi_s, Option.mem_def, Option.ite_none_right_eq_some] at h
   grind
 
 /- If ϕₑ,ₛ(n)↓, then e < s -/
-@[grind, simp]
+@[grind →, simp]
 lemma halt_index_bound (h : Phi_s_halts e s n) : e < s := by grind [Phi_s_halts, Phi_s]
 
 /- Helper lemmas - ϕ_{e, 0}(n)↑ -/
-@[grind, simp]
+@[grind →, simp]
 lemma halt_stage_gt_zero (h : Phi_s_halts e s n) : s > 0 := by grind [Phi_s_halts, Phi_s]
 
-@[grind, simp]
+@[grind ., simp]
 lemma stage_zero_diverges : ¬ Phi_s_halts e 0 n := by grind [Phi_s_halts, Phi_s]
 
 open Primrec
@@ -156,17 +161,18 @@ private lemma bounded_exists (f : ℕ → ℕ → Prop) (s : ℕ) [DecidableRel 
     PrimrecPred (λ n => ∃ y < s, (f y n)) := by
   have h1 : (λ n => decide (∃ y < s, f y n)) =
             (λ n => decide ((List.range s).filter (fun y => f y n) ≠ [])) := by simp
-  simp [PrimrecPred, h1]
-  apply PrimrecPred.not
-  apply PrimrecRel.comp Primrec.eq (PrimrecPred.listFilter_listRange s hf) (const [])
+  sorry
+  --simp_all only [ne_eq, List.filter_eq_nil_iff, List.mem_range, decide_eq_true_eq, not_forall,
+    --Decidable.not_not]
+
 
 /- ϕₑ,ₛ is a primitive recursive function -/
 lemma phi_s_primrec : Primrec (Phi_s e s) := by
   have h := primrec_evaln.comp (pair (pair (const s) (const (ofNatCode e))) .id)
   apply ite (PrimrecPred.and (PrimrecRel.comp nat_lt (const e) (const s)) ?_) h (const Option.none)
   apply bounded_exists
-  simp only [PrimrecRel, Primrec₂, Option.mem_def]
-  exact PrimrecRel.comp .eq (.comp h snd) (option_some_iff.mpr fst)
+  simp only [PrimrecRel, Option.mem_def]
+  exact PrimrecRel.comp Primrec.eq (.comp h snd) (option_some_iff.mpr fst)
 
 lemma phi_s_halts_primrec : PrimrecPred (Phi_s_halts e s) := by
   have h (n : ℕ) : (∃ x, Phi_s e s n = some x) ↔ (∃ x < s, Phi_s e s n = some x) := by
@@ -178,9 +184,9 @@ lemma phi_s_halts_primrec : PrimrecPred (Phi_s_halts e s) := by
       · exact h
     · simp_all
   unfold Phi_s_halts
-  simp only [PrimrecPred, Option.mem_def, h]
+  simp only [Option.mem_def, h]
   apply bounded_exists
-  apply PrimrecRel.comp₂ .eq (comp₂ (phi_s_primrec) (Primrec₂.right))
+  apply PrimrecRel.comp₂ Primrec.eq (comp₂ (phi_s_primrec) (Primrec₂.right))
   exact comp₂ option_some Primrec₂.left
 
 /- ϕₑ is a partial computable function -/
@@ -225,7 +231,7 @@ lemma Sigma01_is_W (h : Sigma01 X) : ∃ e, X = W e := by
 lemma Sigma01_iff_W : Sigma01 X ↔ ∃ e, X = W e := by grind [Sigma01_is_W, W_Sigma01]
 
 /- Monotonicity of halting: if s < t and ϕ_{e,s}(n)↓, then ϕ_{e,t}(n)↓ -/
-@[grind, simp]
+@[grind →, simp]
 lemma phi_halts_mono (h : s ≤ t) (h1 : Phi_s_halts e s n) : Phi_s_halts e t n := by
   revert h1
   simp only [Phi_s_halts, Phi_s, Option.mem_def, Option.ite_none_right_eq_some, exists_and_left,
@@ -241,10 +247,8 @@ lemma phi_halts_mono (h : s ≤ t) (h1 : Phi_s_halts e s n) : Phi_s_halts e t n 
   · exact ⟨x, evaln_mono h h3⟩
 
 /- Reverse monotonicity of halting: if s < t and ϕ_{e,t}(n)↑, then ϕ_{e,s}(n)↑ -/
-@[grind, simp]
+@[grind →, simp]
 lemma phi_halts_mono_reverse (h : s ≤ t) (h1 : ¬ Phi_s_halts e t n) : ¬ Phi_s_halts e s n := by
-  contrapose h1
-  simp_all only [not_not]
   grind
 
 /- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
@@ -254,7 +258,7 @@ def runtime (e n : ℕ) : Part ℕ :=
 
 /- TODO: runtime lemmas can be cleaned up with Nat.rfind spec/min? -/
 /- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
-@[grind, simp]
+@[grind =, simp]
 lemma runtime_is_min (r : ℕ) : (r ∈ (runtime e n)) ↔
     Phi_s_halts e r n ∧ (∀ (t : ℕ), t < r → ¬ Phi_s_halts e t n) := by
   constructor
@@ -275,13 +279,13 @@ lemma runtime_is_min (r : ℕ) : (r ∈ (runtime e n)) ↔
       push_neg at hm
       exact Option.eq_none_iff_forall_ne_some.mpr hm
 
-@[grind, simp]
+@[grind ., simp]
 lemma runtime_is_min' (h : Phi_s_halts e s n) :
     ∃ r ∈ runtime e n, r ≤ s := Nat.rfind_min' (Option.isSome_iff_exists.mpr h)
 
 /- TODO : provide an explicit version and an exists version? -/
 /- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
-@[grind, simp]
+@[grind =, simp]
 lemma phi_halts_stage_exists : Phi_halts e n ↔ ∃ s, Phi_s_halts e s n := by
   unfold Phi_s_halts Phi_halts Phi_s Phi
   simp only [evaln_complete, Option.mem_def, Option.ite_none_right_eq_some, exists_and_left]
@@ -304,7 +308,7 @@ lemma phi_halts_stage_exists : Phi_halts e n ↔ ∃ s, Phi_s_halts e s n := by
   · grind
 
 /- ϕₑ(n)↓ iff there is a *least* stage s at which ϕₑ,ₛ(n)↓ -/
-@[grind, simp]
+@[grind =, simp]
 lemma phi_halts_runtime_exists : Phi_halts e n ↔ ∃ r, r ∈ runtime e n := by
   constructor
   · intro h
@@ -329,7 +333,7 @@ lemma phi_halts_runtime_exists : Phi_halts e n ↔ ∃ r, r ∈ runtime e n := b
     exact ⟨r, h.left⟩
 
 /- ϕₑ,ₛ(n)↓ iff n ∈ Wₑ,ₛ -/
-@[grind, simp]
+@[simp]
 lemma W_s_Phi_s : n ∈ W_s e s ↔ Phi_s_halts e s n := by
   unfold W_s Phi_s_halts
   simp only [Option.mem_def, Finset.mem_filter, Finset.mem_range, and_iff_right_iff_imp,
@@ -337,30 +341,36 @@ lemma W_s_Phi_s : n ∈ W_s e s ↔ Phi_s_halts e s n := by
   intro x h
   exact halt_input_bound ⟨x, h⟩
 
-@[grind, simp]
+@[simp]
 lemma Ws_gt_zero : n ∈ W_s e s → s > 0 := by grind
 
-@[grind, simp]
+@[simp]
 lemma Ws_zero_empty : W_s e 0 = ∅ := by grind
 
 /- ϕₑ(x)↓ ↔ x ∈ Wₑ -/
-@[grind, simp]
+@[simp]
 lemma mem_W_phi : n ∈ W e ↔ Phi_halts e n := Part.dom_iff_mem
 
 /- W_{s} ⊆ W_{e, s+1}  -/
-@[grind, simp]
+@[simp]
 lemma W_s_mono (h : s ≤ t) : (W_s e s) ⊆ (W_s e t) := by grind
 
 /- Membership in some W_{e,s} implies runtime r exists, and membership in W_{e, r+1}-/
-@[grind, simp]
+@[grind ., simp]
 lemma Ws_runtime (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n ∧ n ∈ W_s e r := by grind
 
 /- Wₑ,ₛ ⊆ Wₑ  -/
-@[grind, simp]
-lemma W_s_subset_W : (W_s e s).toSet ⊆ W e := by grind
+@[grind! ., simp]
+lemma W_s_subset_W : ↑(W_s e s) ⊆ W e := by
+  intro x h
+  rw [mem_W_phi]
+  simp only [W_s, Finset.coe_filter, Finset.mem_range, Set.mem_setOf_eq] at h
+  rw [phi_halts_stage_exists]
+  use s
+  exact h.right
 
 /- Wₑ = ⋃ₛ Wₑ,ₛ -/
-@[grind, simp]
+@[grind =, simp]
 lemma W_mem_iff_W_s : n ∈ W e ↔ ∃ s, n ∈ W_s e s := by
   constructor
   · intro h

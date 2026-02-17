@@ -4,11 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
 import Mathlib.Computability.Halting
-import Mathlib.Computability.Primrec.Basic
-import Mathlib.Computability.Primrec.List
 import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Order.ConditionallyCompleteLattice.Basic
-import Mathlib.Order.Preorder.Finite
 
 /-!
 # Sets for Computability Theory
@@ -94,23 +91,6 @@ variable {X Y : Set ℕ}
 /-- Primitive recursive subsets of ℕ are those with primitive recursive characteristic functions -/
 def set (X : Set ℕ) : Prop := (∃ (f : ℕ → Bool), Primrec f ∧ ∀ x, x ∈ X ↔ f x = true)
 
-/-- ℕ is primitive recursive -/
-theorem nat : set (univ : Set ℕ) := by
-  use (fun _ ↦ true)
-  simp [Primrec.const]
-
-/-- ∅ is primitive recursive -/
-theorem empty_set : set (∅ : Set ℕ) := by
-  use (fun _ ↦ false)
-  simp [Primrec.const]
-
-/- Singletons are primitive recursive -/
-theorem singleton (a : ℕ) : set ({a} : Set ℕ) := by
-  use fun n ↦ bif n = a then true else false
-  constructor
-  · apply cond (_) (const true) (const false)
-    exact PrimrecPred.decide (PrimrecRel.comp Primrec.eq Primrec.id (const a))
-  · simp
 
 /-- The primitive recursive sets are closed under union -/
 theorem union (hX : set X) (hY : set Y) : set (X ∪ Y) := by
@@ -122,7 +102,6 @@ theorem union (hX : set X) (hY : set Y) : set (X ∪ Y) := by
   · intro x
     apply Iff.trans (mem_union x X Y)
     simp [hX, hY]
-
 
 /-- The primitive recursive sets are closed under complement -/
 theorem compl (hX : set X) : set Xᶜ := by
@@ -150,6 +129,29 @@ theorem inter (hX : set X) (hY : set Y) : set (X ∩ Y) := by
 theorem sdiff (hX : set X) (hY : set Y) : set (X \ Y) := by
   apply inter hX (compl hY)
 
+/-- The primitive recursive sets are closed under symmetric difference -/
+theorem symmdiff (hX : set X) (hY : set Y) : set (X ∆ Y) := by
+  apply union
+  <;> simp [sdiff, hX, hY]
+
+/-- ℕ is primitive recursive -/
+theorem nat : set (univ : Set ℕ) := by
+  use (fun _ ↦ true)
+  simp [Primrec.const]
+
+/-- ∅ is primitive recursive -/
+theorem empty_set : set (∅ : Set ℕ) := by
+  use (fun _ ↦ false)
+  simp [Primrec.const]
+
+/- Singletons are primitive recursive -/
+theorem singleton (a : ℕ) : set ({a} : Set ℕ) := by
+  use fun n ↦ bif n = a then true else false
+  constructor
+  · apply cond (_) (const true) (const false)
+    exact PrimrecPred.decide (PrimrecRel.comp Primrec.eq Primrec.id (const a))
+  · simp
+
 /-- Finite sets are primitive recursive -/
 theorem finite (h : X.Finite) : set X := by
   obtain ⟨X, rfl⟩ := Finite.exists_finset_coe h
@@ -160,12 +162,7 @@ theorem finite (h : X.Finite) : set X := by
     exact union (singleton a) (hPrim (Finite.of_fintype _))
 
 /-- Cofinite sets are primitive recursive -/
-theorem cofinite (hX : Xᶜ.Finite) : set X := compl_iff.mpr (finite hX)
-
-/-- The primitive recursive sets are closed under symmetric difference -/
-theorem symmdiff (hX : set X) (hY : set Y) : set (X ∆ Y) := by
-  apply union
-  <;> simp [sdiff, hX, hY]
+theorem cofinite (h : Xᶜ.Finite) : set X := compl_iff.mpr (finite h)
 
 end Primrec
 
@@ -222,6 +219,21 @@ theorem symmdiff (hX : set X) (hY : set Y) : set (X ∆ Y) := by
   apply union
   <;> simp [sdiff, hX, hY]
 
+/-- ℕ is computable -/
+theorem nat : set (univ : Set ℕ) := primrec Primrec.nat
+
+/-- ∅ is computable -/
+theorem empty_set : set (∅ : Set ℕ) := primrec Primrec.empty_set
+
+/- Singletons are computable -/
+theorem singleton (a : ℕ) : set ({a} : Set ℕ) := primrec (Primrec.singleton a)
+
+/-- Finite sets are computable -/
+theorem finite (h : X.Finite) : set X := primrec (Primrec.finite h)
+
+/-- Cofinite sets are computable -/
+theorem cofinite (h : Xᶜ.Finite) : set X := primrec (Primrec.cofinite h)
+
 end Computable
 
 namespace Partrec
@@ -271,7 +283,7 @@ theorem Sdiff_by_computable (hX : set X) (hY : Computable.set Y) : set (X \ Y) :
   inter hX (computable (Computable.compl hY))
 
 /-- If X=*Y and X is partial recursive, then Y is partial recursive -/
-theorem partrec_set_eq_star (hXY : X =* Y) (hX : set X) : set Y := by
+theorem eq_star (hXY : X =* Y) (hX : set X) : set Y := by
   have hY : Y = (X ∪ (Y\X))\(X\Y) := by
     simp only [union_diff_self, diff_diff_right, union_inter_cancel_right,
       union_diff_distrib, sdiff_self, bot_eq_empty, empty_union]
@@ -285,8 +297,23 @@ theorem partrec_set_eq_star (hXY : X =* Y) (hX : set X) : set Y := by
     simp [Set.symmDiff_def]
 
 /-- If X=*Y, then X is partial recursive iff Y is -/
-theorem partrec_set_eq_star_iff (hXY : X =* Y) : set X ↔ set Y := by
+theorem eq_star_iff (hXY : X =* Y) : set X ↔ set Y := by
   constructor
-  · exact partrec_set_eq_star hXY
+  · exact eq_star hXY
   · rw [eq_star_comm] at hXY
-    exact partrec_set_eq_star hXY
+    exact eq_star hXY
+
+/-- ℕ is partial recursive -/
+theorem nat : set (univ : Set ℕ) := computable Computable.nat
+
+/-- ∅ is partial recursive -/
+theorem empty_set : set (∅ : Set ℕ) := computable Computable.empty_set
+
+/- Singletons are partial recursive -/
+theorem singleton (a : ℕ) : set ({a} : Set ℕ) := computable (Computable.singleton a)
+
+/-- Finite sets are partial recursive -/
+theorem finite (h : X.Finite) : set X := computable (Computable.finite h)
+
+/-- Cofinite sets are partial recursive -/
+theorem cofinite (h : Xᶜ.Finite) : set X := computable (Computable.cofinite h)

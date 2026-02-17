@@ -5,6 +5,8 @@ Authors: David J. Webb
 -/
 import Mathlib.Computability.Halting
 import Mathlib.Data.Set.Finite.Basic
+import Mathlib.Computability.Primrec.Basic
+import Mathlib.Computability.Primrec.List
 import Mathlib.Order.ConditionallyCompleteLattice.Basic
 import Mathlib.Order.Preorder.Finite
 

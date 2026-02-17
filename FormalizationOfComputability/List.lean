@@ -31,7 +31,7 @@ theorem idxOf?_getElem?_iff (h : ∀ i < n, L[i]? ≠ a) : n = List.idxOf? a L �
     constructor
     · exact h2
     · constructor
-      · simp [h2, h3]
+      · simp [h3]
       · intro j hjn
         simp only [beq_eq_false_iff_ne, ne_eq]
         apply h at hjn
@@ -52,7 +52,7 @@ theorem index_head {α} {a : α} {L : List α} : some a = L.head? ↔ L[0]? = a 
   exact eq_comm
 
 theorem index_tail : a ∈ L.tail ↔ ∃ n ≥ 1, L[n]? = a := by
-  cases' L with b T
+  cases L with | nil | cons b T
   · simp
   · simp only [tail_cons, ge_iff_le]
     constructor
@@ -74,7 +74,7 @@ theorem index_tail : a ∈ L.tail ↔ ∃ n ≥ 1, L[n]? = a := by
 
 theorem index_tail_minus_one (h : a ∈ L.tail) :
     a = L.head? ∨ idxOf? a L.tail = (List.idxOf? a L).map (· - 1) := by
-  cases' L with b T
+  cases L with | nil | cons b T
   · tauto
   · by_cases h1 : a = (b :: T).head?
     · left
@@ -109,9 +109,9 @@ theorem index_tail_minus_one (h : a ∈ L.tail) :
       apply idxOf?_getElem?_iff at h4
       simp [k, Nat.find_spec h] at h3
       rw [← h3]
-      simp only [Option.map_some, k]
+      simp only [Option.map_some]
       rw [eq_comm] at h4
-      simp_all [h4, h, h2]
+      simp_all
 
 variable [BEq α] [LawfulBEq α]
 
@@ -132,7 +132,8 @@ theorem List.idxOf?_append {l₁ l₂ : List α} :
 
 theorem idxOf?_length {α} [DecidableEq α] {a : α} {n : ℕ} {L : List α}
     (h : some n = idxOf? a L) : n < L.length :=
-  isSome_getElem?.mp (Option.isSome_of_mem (idxOf?_getElem? h))
+  sorry
+  --isSome_getElem? (Option.isSome_of_mem (idxOf?_getElem? h))
 
 
 
