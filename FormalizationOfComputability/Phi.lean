@@ -158,13 +158,13 @@ open Primrec
 -- a helper lemma for showing that phi_s is primitive recursive
 private lemma bounded_exists (f : ℕ → ℕ → Prop) (s : ℕ) [DecidableRel f]
     (hf : PrimrecRel f) :
-    PrimrecPred (λ n => ∃ y < s, (f y n)) := by
-  have h1 : (λ n => decide (∃ y < s, f y n)) =
-            (λ n => decide ((List.range s).filter (fun y => f y n) ≠ [])) := by simp
-  sorry
-  --simp_all only [ne_eq, List.filter_eq_nil_iff, List.mem_range, decide_eq_true_eq, not_forall,
-    --Decidable.not_not]
-
+      PrimrecPred (λ n => ∃ y < s, (f y n)) := by
+    have h := PrimrecRel.exists_mem_list hf
+    unfold PrimrecRel at h
+    have hpair : Primrec (λ n : ℕ => (List.range s, n)) :=
+      (Primrec.const (List.range s)).pair Primrec.id
+    have h3 := h.comp hpair
+    simp_all only [List.mem_range]
 
 /- ϕₑ,ₛ is a primitive recursive function -/
 lemma phi_s_primrec : Primrec (Phi_s e s) := by
