@@ -7,13 +7,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
 import FormalizationOfComputability.Sets
+import FormalizationOfComputability.Phi
+import FormalizationOfComputability.PhiSeq
 import Mathlib.Order.Filter.Cofinite
 import Mathlib.Tactic.Linarith
 
 namespace Computability
-
-abbrev Delta01 := Computable.set
-abbrev Sigma01 := Partrec.set
 
 def Coinfinite (X : Set ℕ) : Prop := Xᶜ.Infinite
 def Inf_coinf (X : Set ℕ) : Prop := X.Infinite ∧ Coinfinite X
@@ -70,6 +69,9 @@ theorem delta01_is_sigma01 (X : Set ℕ) (h: Delta01 X) : Sigma01 X := Partrec.c
 theorem delta01_is_pi01 (X : Set ℕ) (h: Delta01 X) : Pi01 X :=
   Partrec.computable (Computable.compl h)
 
+-- if (W_e e1) = X and (W_e e2) = X^c, then ∀ n ∈ ℕ,
+-- ∃ s Wenum e1 s = n ↔ n ∈ W e
+
 theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧ Pi01 X := by
   constructor
   · intro h
@@ -79,7 +81,37 @@ theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧
     · apply delta01_is_pi01
       exact h
   · intro h
-    obtain ⟨⟨f, ⟨fSigma, fSpec⟩⟩, ⟨g, ⟨gPi, gSpec⟩⟩⟩ := h
+    unfold Pi01 at h
+    obtain ⟨XSigma, XcSigma⟩ := h
+    apply Sigma01_is_W at XSigma
+    obtain ⟨e1, hX⟩ := XSigma
+    apply Sigma01_is_W at XcSigma
+    obtain ⟨e2, hXc⟩ := XcSigma
+    have henum : ∀ (n : ℕ), ∃ s, ((Wenum e1 s = n) ∨ (Wenum e2 s = n)) := by
+      intro n
+      by_cases h : (∃ s, Wenum e1 s = some n)
+      · obtain ⟨s, h⟩ := h
+        use s
+        exact Or.inl h
+      · apply exists_or.mpr ?_
+        apply Or.inr
+        have hn : n ∈ Xᶜ := by
+          simp only [Set.mem_compl_iff]
+          contrapose h
+          rw [hX] at h
+          apply ((We_mem_TFAE e1 n).out 0 3).mp at h
+          obtain ⟨s, h⟩ := h
+          use s
+          simp only [h]
+        rw [hXc] at hn
+        apply ((We_mem_TFAE e2 n).out 0 3).mp at hn
+        obtain ⟨s, h⟩ := hn
+        use s
+        simp [h]
+    --obtain ⟨⟨f, ⟨fSigma, fSpec⟩⟩, ⟨g, ⟨gPi, gSpec⟩⟩⟩ := h
+    unfold Delta01 Computable.set Computable
+
+    --
     sorry
 
 -- nat_pi01
@@ -111,6 +143,8 @@ exact h
 
 def nat_function_partrec (f : ℕ →. Unit) : ℕ →. ℕ :=
 f.map (fun _ => 1)
+
+-- lemma an increasing c.e. function is computable
 
 lemma sigma01_has_delta01_subset (X : Set ℕ) (hX : Sigma01 X) (hInf : X.Infinite):
 ∃ (Y : Set ℕ), Delta01 Y ∧ Y.Infinite ∧ Y ⊆ X ∧ (X\Y).Infinite := by

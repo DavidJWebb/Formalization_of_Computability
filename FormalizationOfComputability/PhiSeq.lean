@@ -367,8 +367,7 @@ lemma enter_queue_nodup_elements (h : (enter_queue e s)[k]? = some n) (h1 : i �
   rw [← h] at h3
   apply List.getElem?_inj at h3
   · tauto
-  · rw [h] at h3
-    sorry
+  · grind
   · exact enter_queue_nodup e s
 
 /- If n is not the head of an queue, then at the next step its index decreases by 1. -/
@@ -515,9 +514,28 @@ lemma Phi_halts_Wenum (e n : ℕ) : Phi_halts e n ↔ ∃ s, n = Wenum e s := by
   · unfold new_element at h
     exact ⟨s, mem_of_mem_head? h.symm⟩
 
-/-- TODO: prove a constructive version, then generalize to exists -/
+theorem We_mem_TFAE (e n : ℕ) :
+    [n ∈ W e,                  --1
+     ∃ s, n ∈ W_s e s,         --2
+     Phi_halts e n,            --3
+     ∃ s, n = Wenum e s,       --4
+     ∃ s, Phi_s_halts e s n,   --5
+     ∃ x, ∃ s, x ∈ Phi_s e s n --6
+    ].TFAE := by
+  tfae_have 1 ↔ 2 := W_mem_iff_W_s
+  tfae_have 3 ↔ 4 := Phi_halts_Wenum e n
+  tfae_have 2 ↔ 5 := by
+    apply exists_congr
+    intro a
+    exact W_s_Phi_s
+  tfae_have 3 ↔ 5 := phi_halts_stage_exists
+  tfae_have 5 ↔ 6 := exists_comm
+  tfae_finish
+
+/-- TODO: prove a constructive version, then generalize to exists? -/
 /- If PhiNew stabilizes, then eventually the queue depletes.
 Indeed iff is true, see TFAE below. -/
+
 lemma queue_depletes (h : (W e).Finite) :
     ∃ t, ∀ s > t, enter_queue e s = [] := by
   rw [We_finite_iff_PhiNew_stabilizes] at h
