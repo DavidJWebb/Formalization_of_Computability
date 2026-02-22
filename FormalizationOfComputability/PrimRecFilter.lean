@@ -103,7 +103,7 @@ lemma bounded_exists (f : ℕ → ℕ → Prop) (s : ℕ) [DecidableRel f]
     PrimrecPred (λ n => ∃ y < s, (f y n)) := by
   have h1 : (λ n => decide (∃ y < s, f y n)) =
             (λ n => decide ((List.range s).filter (fun y => f y n) ≠ [])) := by simp
-  simp [PrimrecPred, h1]
+  simp [PrimrecPred]
   apply PrimrecPred.not
   apply PrimrecRel.comp Primrec.eq ?_ (const [])
   apply rel_list_filter
@@ -114,7 +114,7 @@ lemma bounded_forall (f : ℕ → ℕ → Prop) (s : ℕ) [∀ y, DecidablePred 
     PrimrecPred (λ n => ∀ y < s, (f y n)) := by
   have h1 : (λ n => decide (∀ y < s, f y n)) =
             (λ n => decide ((List.range s).filter (fun y => f y n) = List.range s)) := by simp
-  simp [PrimrecPred, h1]
+  simp [PrimrecPred]
   apply PrimrecRel.comp Primrec.eq
   · apply rel_list_filter
     exact hf

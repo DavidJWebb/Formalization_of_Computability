@@ -110,15 +110,20 @@ theorem set_iff_exists  : set X ↔ (∃ (f : ℕ → Bool), Primrec f ∧ ∀ x
     rw [← h x]
 
 /-- ℕ is primitive recursive -/
-theorem nat : set (univ : Set ℕ) := const (decide True)
+theorem nat : set (univ : Set ℕ) := primrecPred (const true)
 
 /-- ∅ is primitive recursive -/
-theorem empty_set : set (∅ : Set ℕ) := by
-  simp only [set, PrimrecPred]
-  exact const false
+theorem empty_set : set (∅ : Set ℕ) := primrecPred (const false)
 
 /- Singletons are primitive recursive -/
-theorem singleton (a : ℕ) : set ({a} : Set ℕ) := PrimrecRel.comp .eq .id (.const a)
+theorem singleton (a : ℕ) : set ({a} : Set ℕ) := by
+  unfold set
+  refine PrimrecPred.comp ?_ (.id)
+  unfold PrimrecPred
+  simp only [mem_singleton_iff, exists_const]
+  apply?
+
+--PrimrecRel.comp .eq .id (.const a)
 
 /-- The primitive recursive sets are closed under union -/
 theorem union (hX : set X) (hY : set Y) : set (X ∪ Y) := by
@@ -148,7 +153,7 @@ theorem sdiff (hX : set X) (hY : set Y) : set (X \ Y) := by apply inter hX (comp
 theorem finite (h : X.Finite) : set X := by
   refine set_iff_exists.mpr ?_
   obtain ⟨X, rfl⟩ := Finite.exists_finset_coe h
-  induction' X using Finset.induction_on' with a S _ _ ha hPrim
+  induction X using Finset.induction_on' with | empty | insert a S _ _ ha hPrim
   · exact set_iff_exists.mp empty_set
   · simp only [Finset.coe_insert, mem_insert_iff, Finset.mem_coe]
     obtain ⟨f, h1⟩ := hPrim (Finset.finite_toSet S)
