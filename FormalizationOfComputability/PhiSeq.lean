@@ -514,6 +514,7 @@ lemma Phi_halts_Wenum (e n : ℕ) : Phi_halts e n ↔ ∃ s, n = Wenum e s := by
   · unfold new_element at h
     exact ⟨s, mem_of_mem_head? h.symm⟩
 
+/-- To do : extract frequent lemmas -/
 theorem We_mem_TFAE (e n : ℕ) :
     [n ∈ W e,                  --1
      ∃ s, n ∈ W_s e s,         --2

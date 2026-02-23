@@ -7,8 +7,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
 import FormalizationOfComputability.Sets
-import FormalizationOfComputability.Phi
-import FormalizationOfComputability.PhiSeq
+import FormalizationOfComputability.ComputableSeq
 import Mathlib.Order.Filter.Cofinite
 import Mathlib.Tactic.Linarith
 
@@ -143,8 +142,6 @@ exact h
 
 def nat_function_partrec (f : ℕ →. Unit) : ℕ →. ℕ :=
 f.map (fun _ => 1)
-
--- lemma an increasing c.e. function is computable
 
 lemma sigma01_has_delta01_subset (X : Set ℕ) (hX : Sigma01 X) (hInf : X.Infinite):
 ∃ (Y : Set ℕ), Delta01 Y ∧ Y.Infinite ∧ Y ⊆ X ∧ (X\Y).Infinite := by

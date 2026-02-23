@@ -91,6 +91,16 @@ variable {X Y : Set ℕ}
 /-- Primitive recursive subsets of ℕ are those with primitive recursive characteristic functions -/
 def set (X : Set ℕ) : Prop := (∃ (f : ℕ → Bool), Primrec f ∧ ∀ x, x ∈ X ↔ f x = true)
 
+theorem set_iff_PrimrecPred (X : Set ℕ) : set X ↔ PrimrecPred (fun n => n ∈ X) := by
+  unfold set
+  constructor
+  · intro ⟨f, ⟨fPrim, fX⟩⟩
+    simp [PrimrecPred, fX, fPrim]
+  · intro h
+    use λ n ↦ (n ∈ X) = True
+    simp
+    refine PrimrecPred.decide ?_
+    simp only [eq_iff_iff, iff_true, h]
 
 /-- The primitive recursive sets are closed under union -/
 theorem union (hX : set X) (hY : set Y) : set (X ∪ Y) := by
@@ -173,6 +183,17 @@ open Computable
 /-- Computable subsets of ℕ are those with computable characteristic functions -/
 def set (X : Set ℕ) : Prop := ∃ (f : ℕ → Bool), Computable f ∧ ∀ x, x ∈ X ↔ f x = true
 
+theorem set_iff_ComputablePred (X : Set ℕ) : set X ↔ ComputablePred (fun n => n ∈ X) := by
+  unfold set
+  constructor
+  · intro ⟨f, ⟨fComp, fX⟩⟩
+    simp [ComputablePred, fX, fComp]
+  · intro h
+    use λ n ↦ (n ∈ X) = True
+    simp
+    refine ComputablePred.decide ?_
+    simp only [eq_iff_iff, iff_true, h]
+
 /-- Primitive recursive sets are computable -/
 theorem primrec (h : Primrec.set X) : set X := by
   obtain ⟨f, ⟨_, _⟩⟩ := h
@@ -242,6 +263,38 @@ open Partrec
 
 /-- Partial recursive subsets of ℕ are those with partially recursive characteristic functions -/
 def set (X : Set ℕ): Prop := ∃ (f: ℕ →. Unit), Partrec f ∧ f.Dom = X
+
+/-- This definition is equivalent to having an REPred -/
+theorem set_iff_REPred (X : Set ℕ) : set X ↔ REPred (fun n => n ∈ X) := by
+  unfold set
+  constructor
+  · intro ⟨f, ⟨fRE, fX⟩⟩
+    simp [REPred]
+    have h_eq :
+        (fun n => f n >>= fun _ => Part.some ()) =
+        (fun n => Part.assert (n ∈ X) fun _ => Part.some ()) := by
+      funext n
+      apply Part.ext
+      simp only [Part.bind_eq_bind, Part.mem_bind_iff, Part.mem_some_iff, and_true,
+        Part.mem_assert_iff, exists_prop, forall_const]
+      constructor
+      · intro ⟨a, h⟩
+        have hn : n ∈ f.Dom := by
+          refine (PFun.mem_dom f n).mpr ?_
+          use a
+        simp_all only
+      · intro h
+        rw [←fX] at h
+        exact Part.dom_iff_mem.mp h
+    have h_bind : Partrec (λ n ↦ f n >>= λ _ ↦ Part.some ()) := by
+      apply fRE.bind (?_)
+      exact const' (Part.some ())
+    exact of_eq h_bind (congrFun h_eq)
+  · intro h
+    refine ⟨(fun n => Part.assert (n ∈ X) fun _ => Part.some ()), h, ?_⟩
+    ext n
+    simp_all [Part.assert]
+
 
 /-- Computable sets are partial recursive -/
 theorem computable (h : Computable.set X) : set X := by
