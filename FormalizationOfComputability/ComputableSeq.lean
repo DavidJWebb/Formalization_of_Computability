@@ -11,21 +11,66 @@ import Mathlib.Data.Stream.Defs
 namespace Computability
 
 -- the first Some element of a stream
-partial def seekSome (S : Stream' (Option ℕ)) : Stream' (Option ℕ) :=
-  match S.head with
-  | some _ => S
-  | none   => seekSome S.tail
+def seekSome (S : Stream' (Option ℕ)) [DecidablePred (fun k => ∃ n, S k = some n)]
+  (h : ∃ k n, S k = some n) : Stream' (Option ℕ) :=
+  Stream'.drop (Nat.find h) S
 
--- delete blank spaces in a stream
-def dropNone (s : Stream' (Option ℕ)) : Stream' ℕ :=
+-- dropping the first k elements of a stream (starting at zero) makes the stream start
+-- with the kth element
+lemma head_drop (S : Stream' (Option ℕ)) (k : ℕ) :
+  (Stream'.drop k S).head = S k := by
+  revert S
+  induction k with | zero | succ k ih
+  · intro S
+    exact (Option.map_inj_right fun x y a ↦ a).mp rfl
+  · intro S
+    simp only [Stream'.head, Stream'.get, Stream'.drop, zero_add]
+
+-- properties of seekSome
+lemma seekSome_spec (S : Stream' (Option ℕ)) [DecidablePred (fun k => ∃ n, S k = some n)]
+    (h : ∃ k n, S k = some n) :
+    ∃ k, seekSome S h = Stream'.drop k S ∧ (seekSome S h).head = S k := by
+  refine ⟨Nat.find h, rfl, ?_⟩
+  simp only [seekSome, head_drop]
+
+-- delete blank spaces in a stream that is known to be infinite
+def dropNone (S : Stream' (Option ℕ))
+  [dec : DecidablePred (fun k => ∃ n, S k = some n)]
+  (h : ∀ N, ∃ n > N, ∃ k, S n = some k) : Stream' ℕ :=
+  let h0 : ∃ k n, S k = some n :=
+    let ⟨n, _, k, hk⟩ := h 0
+    ⟨n, k, hk⟩   -- note we swap n/k to match seekSome type
+  let S' := seekSome S h0
   Stream'.corec
-    (fun s => match (seekSome s).head with
-      | some n => n
-      | none   => 0  ) -- if the Stream' is infinite, this is never reached
-    (fun s => (seekSome s).tail) s
+    (fun s => s.head.getD 0)
+    (fun s => s.tail)
+    S'
 
-def Wenum' (e : ℕ) : Stream' ℕ :=
-  dropNone (Wenum e)
+-- TODO: prove DecidablePred (fun k => ∃ n, Wenum e k = some n)
+-- so that this doesn't need that hypothesis
+
+-- flatten known infinite Wenum streams
+def Wenum' (e : ℕ)
+  (dec : DecidablePred (fun k => ∃ n, Wenum e k = some n))
+  (h: (W e).Infinite)
+  : Stream' ℕ :=
+  dropNone (Wenum e) (by
+    have h1 := ((We_infinite_TFAE e).out 0 5).mp h
+    simp_all only [W, gt_iff_lt, ne_eq, Option.ne_none_iff_exists', implies_true]
+    )
+
+-- TODO: rephrase for general infinte streams
+def enum_stage' (e n : ℕ) (dec : DecidablePred (fun k => ∃ n, Wenum e k = some n))
+  (h: (W e).Infinite): Part ℕ :=
+  Nat.rfind (fun s => (Wenum' e dec h s == some n))
+
+-- TODO: rephrease for general infinite streams
+lemma enum_convert (e n : ℕ) (S : Stream' (Option ℕ)) :
+    (∃ s, n = dropNone S s) ↔ (∃ t, some n = S t) := by
+  sorry
+
+lemma enum_stage'_exists (e n : ℕ) (h : n ∈ W e) : (enum_stage' e n).Dom := by
+  sorry
 
 
 def Pi01 (X : Set ℕ): Prop := Sigma01 Xᶜ
@@ -51,8 +96,42 @@ theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧
 
 lemma inf_inc_sigma01_seq_is_delta01 (e : ℕ) (h1 : (W e).Infinite)
     (h2 : ∀ (n : ℕ), Wenum' e n < Wenum' e (n+1)) : Delta01 (W e) := by
-    sorry
-  -- given x, create the set of Wenum
+
+  -- Step 1: membership characterized by enumeration
+  have hmem :
+    ∀ x, x ∈ W e ↔ ∃ n, Wenum' e n = x := by sorry
+  -- Step 2: show bounded search
+  have hbound (x : ℕ) (hx : x ∈ W e):
+    ∃ N, ∀ n ≥ N, x < Wenum' e n := by
+    apply (hmem x).mp at hx
+    obtain ⟨N, hx⟩ := hx
+    use N+1
+    intro n h
+    rw [← hx]
+    induction n with | zero | succ n ih
+    · sorry
+    · by_cases h3 : n≥N+1
+      · apply ih at h3
+        apply lt_trans h3 (h2 n)
+      · simp at h
+        simp at h3
+        have h4 : n = N := by exact Nat.eq_of_le_of_lt_succ h h3
+        rw [h4]
+        apply h2 N
+
+
+
+
+
+
+
+
+  -- Step 3: derive decidability
+  have hdec : DecidablePred (fun x => x ∈ W e) := by sorry
+  -- prove equivalence using monotonicity
+
+
+
 
 
 -- for any given x, ∃ n x < W_enum n (lest W e not be increasing and infinite)
