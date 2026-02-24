@@ -269,7 +269,6 @@ lemma WPrefix_mono (e s t : ℕ) (h : s ≤ t) :
     · apply List.IsPrefix.trans (ih (le_of_lt_succ (lt_of_le_of_ne h h1)))
       simp [WPrefix]
 
-
 /- It is often useful to view elements entering one at a time, so there may be a queue
 of elements waiting to enter. This represents the elements still waiting *at* stage s,
 i.e. the head of this list will be enumerated at stage s. -/
@@ -279,11 +278,6 @@ def enter_queue (e : ℕ) : ℕ → List ℕ
 
 /- The element that has been emitted at stage s, if it exists -/
 def new_element (e s : ℕ) : Option ℕ := (enter_queue e s).head?
-
-/- The stage at which n is enumerated (if any).
-Note that this is *not* the stage at which ϕ_e(n)↓, as n may wait in the enter_queue. -/
-def enum_stage (e n : ℕ) : Part ℕ :=
-  Nat.rfind (fun s => (new_element e s == some n))
 
 /- The sequence of enumerated elements -/
 def Wenum (e : ℕ) : Stream' (Option ℕ) := new_element e
@@ -444,6 +438,26 @@ lemma enter_queue_enum_exact (h : List.idxOf? n (enter_queue e s) = some k) :
   rw [eq_comm, new_element, index_head, ← idxOf?_getElem?_iff]
   · exact id (Eq.symm h1)
   · tauto
+
+/- The stage at which n is enumerated (if any).
+Note that this is *not* the stage at which ϕ_e(n)↓, as n may wait in the enter_queue. -/
+def enum_stage (e n : ℕ) : Part ℕ :=
+  Nat.rfind (fun s => (new_element e s == some n))
+
+/- If n ∈ W_e, then its enumeration stage exists. -/
+lemma enum_stage_exists (e n : ℕ) (h : n ∈ W e) : (enum_stage e n).Dom := by
+  simp [enum_stage]
+  apply mem_W_phi.mp at h
+  apply (enter_queue_mem e n).mpr at h
+  have h1 : ∃ s k, List.idxOf? n (enter_queue e s) = some k := by
+    obtain ⟨s, h⟩ := h
+    use s
+    have h2 : (idxOf? n (enter_queue e s)).isSome := by
+      exact isSome_idxOf?.mpr h
+    exact Option.isSome_iff_exists.mp h2
+  obtain ⟨s, ⟨k, h1⟩⟩ := h1
+  apply enter_queue_enum_exact at h1
+  use s+k
 
 /- If n is in a queue, it is eventually enumerated -/
 lemma enter_queue_enum (h : n ∈ (enter_queue e s)) :
@@ -676,3 +690,17 @@ theorem We_finite_TFAE (e : ℕ) :
   tfae_have 4 → 1 := We_finite_iff_We_eq_Ws
   tfae_have 1 ↔ 6 := Wenum_finite_iff e
   tfae_finish
+
+theorem We_infinite_TFAE (e : ℕ) :
+    [(W e).Infinite,                         --1
+      ∀ t, ∃ s > t, PhiNew e s ≠ ∅,        --2
+      ∀ t, ∃ s > t, W_s e s ≠ W_s e t,       --3
+      ∀ t, W e ≠ W_s e t,                    --4
+      ∀ t, ∃ s > t, enter_queue e s ≠ [],   --5
+      ∀ t, ∃ s > t, Wenum e s ≠ Option.none  --6
+    ].TFAE := by
+    have h := tfae_not_iff.mpr (We_finite_TFAE e)
+    simp only [map] at h
+    push_neg at h
+    simp only [Finset.nonempty_iff_ne_empty] at h
+    exact h
