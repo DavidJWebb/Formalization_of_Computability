@@ -179,9 +179,7 @@ lemma phi_s_halts_primrec : PrimrecPred (Phi_s_halts e s) := by
     constructor
     · intro ⟨x, h⟩
       use x
-      constructor
-      · exact halt_output_bound h
-      · exact h
+      simp only [halt_output_bound h, h, and_self]
     · simp_all
   unfold Phi_s_halts
   simp only [Option.mem_def, h]
