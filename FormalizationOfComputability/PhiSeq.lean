@@ -53,24 +53,13 @@ lemma PhiNew_eq_Ws_diff (e s : ℕ) : (PhiNew e s) = (W_s e s) \ (W_s e (s-1)) :
     intro h1 _ h3
     simp only [PhiNewList, Bool.decide_and, decide_not, mem_filter, mem_range, Bool.and_eq_true,
       decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not]
-    constructor
-    · exact h1
-    · simp_all only [true_and]
-      contrapose h3
-      simp_all only [Classical.not_imp, Decidable.not_not]
-      simp only [(halt_input_bound h3), and_self]
+    grind
 
 /- Elements never enter twice - the PhiNew are disjoint -/
 lemma PhiNew_disjoint_gt (e : ℕ) (h : s > t) :
     Disjoint (PhiNew e s) (PhiNew e t) := by
   rw [Finset.disjoint_iff_ne]
-  simp only [PhiNew, PhiNewList, Bool.decide_and, decide_not, toFinset_filter, Bool.and_eq_true,
-    decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not,
-    Finset.mem_filter, mem_toFinset, mem_range, ne_eq, and_imp]
-  intro a _ _ h1 b _ h2 _
-  contrapose h1
-  simp_all only
-  apply phi_halts_mono (le_sub_one_of_lt h) h2
+  grind
 
 lemma PhiNew_pairwise_disjoint (e : ℕ) :
   Set.PairwiseDisjoint (Set.univ : Set ℕ) (PhiNew e) := by
@@ -88,26 +77,10 @@ lemma Ws_eq (e s : ℕ) : W_s e s = (W_s e (s-1)) ∪ (PhiNew e s) := by
     rw [PhiNew_eq_Ws_diff]
     simp only [Finset.union_sdiff_self_eq_union, Finset.right_eq_union]
     apply W_s_mono
-    simp
+    simp only [tsub_le_iff_right, le_add_iff_nonneg_right, _root_.zero_le]
 
 /- The new elements at stage s are exactly those with runtime s -/
-lemma PhiNew_runtime_iff (e x r : ℕ) : x ∈ PhiNew e r ↔ r ∈ runtime e x := by
-  constructor
-  <;> intro h
-  · rw [runtime_is_min]
-    rw [PhiNew_mem_lemma] at h
-    constructor
-    · exact h.right.left
-    · intro t h1
-      exact phi_halts_mono_reverse (le_sub_one_of_lt h1) (h.right.right)
-  · rw [runtime_is_min] at h
-    rw [PhiNew_eq_Ws_diff]
-    simp only [W_s, Finset.mem_sdiff, Finset.mem_filter, Finset.mem_range, not_and]
-    constructor
-    · constructor
-      · apply halt_input_bound h.left
-      · exact h.left
-    · grind
+lemma PhiNew_runtime_iff (e x r : ℕ) : x ∈ PhiNew e r ↔ r ∈ runtime e x := by grind
 
 /- W_e can be created as a disjoint union of new elements-/
 lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (PhiNew e s) := by
@@ -120,10 +93,7 @@ lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (PhiNew e s) := by
     obtain ⟨r, h⟩ := h
     simp only [PhiNew_runtime_iff]
     exact ⟨r, h.left⟩
-  · obtain ⟨s, h⟩ := h
-    rw [PhiNew_eq_Ws_diff] at h
-    simp only [Finset.mem_sdiff] at h
-    exact ⟨s, h.left⟩
+  · grind
 
 /- TFAE :
 Eventually all PhiNew e s = ∅
@@ -137,10 +107,7 @@ lemma PhiNew_stabilizes_implies_We_finite (e s : ℕ) (h : ∀ t > s, PhiNew e t
   rw [We_eq_union_WsNew, Set.finite_iUnion_iff]
   · simp only [Finset.finite_toSet, implies_true, Finset.coe_nonempty, true_and]
     apply Set.Finite.subset (Set.finite_le_nat s)
-    simp only [Set.setOf_subset_setOf]
-    intro t h1
-    contrapose h1
-    simp_all
+    grind
   · simp only [Finset.disjoint_coe]
     intro i j h1
     apply PhiNew_pairwise_disjoint
@@ -161,8 +128,7 @@ lemma We_finite_implies_PhiNew_stabilizes (e : ℕ) (h : (W e).Finite) :
       contrapose h3
       simp only [gt_iff_lt, Finset.max'_lt_iff, not_forall, not_lt]
       use s
-      simp only [le_refl, exists_prop, and_true, h1, Set.mem_setOf_eq]
-      exact Finset.nonempty_iff_ne_empty.mpr h3
+      grind
   · simp only [Finset.disjoint_coe]
     intro i j h1
     apply PhiNew_pairwise_disjoint
@@ -528,7 +494,7 @@ lemma Phi_halts_Wenum (e n : ℕ) : Phi_halts e n ↔ ∃ s, n = Wenum e s := by
   · unfold new_element at h
     exact ⟨s, mem_of_mem_head? h.symm⟩
 
-/-- To do : extract frequent lemmas -/
+/-- TODO : extract frequent lemmas? -/
 theorem We_mem_TFAE (e n : ℕ) :
     [n ∈ W e,                  --1
      ∃ s, n ∈ W_s e s,         --2
@@ -565,24 +531,19 @@ lemma queue_depletes (h : (W e).Finite) :
     have ⟨k1, hsk1⟩ : ∃ k1, s = t + k + k1 + 1 := by
       apply Nat.exists_eq_add_of_lt
       linarith
-    rw [hsk1]
-    exact hxk k1
+    grind
   have hs : s ≥ t := by linarith
-  have hs1 := enter_queue_PhiNewList e hs
+  have hs1 := IsSuffix.subset (enter_queue_PhiNewList e hs)
   have hi : ∀ i, PhiNew e (t+i+1) = ∅ := by grind
   have hi1 : ∀ i, PhiNewList e (t+i+1) = [] := by
     intro i
     rw [← toFinset_eq_empty_iff]
     exact hi i
   simp_all only [gt_iff_lt, ge_iff_le, map_const', length_range, flatten_replicate_nil, append_nil]
-  apply IsSuffix.subset at hs1
   rw [← toFinset_eq_empty_iff]
   ext x
   simp only [mem_toFinset, Finset.notMem_empty, iff_false]
-  intro h
-  have h1 := hs1 h
-  apply hx at h1
-  tauto
+  grind
 
 lemma Wenum_finite_iff (e : ℕ) : (W e).Finite ↔ ∃ s, ∀ t > s, Wenum e t = Option.none := by
   constructor
@@ -623,8 +584,7 @@ lemma queue_depletes_implies_PhiNew_stabilizes (h : ∃ t, ∀ s > t, enter_queu
     rw [hs1] at h1
     unfold enter_queue at h1
     apply List.append_eq_nil_iff.mp at h1
-    simp [PhiNew]
-    simp [h1, hs1]
+    simp [PhiNew, h1, hs1]
 
 lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s > t, W_s e s = W_s e t) :
     ∃ t, W e = W_s e t := by
@@ -636,12 +596,9 @@ lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s > t, W_s e s = W_s e t) :
   <;> intro h1
   · obtain ⟨s, h1⟩ := h1
     by_cases hts : s > t
-    · apply h at hts
-      simp only [← hts]
-      exact h1
+    · grind
     · exact W_s_mono (Nat.le_of_not_lt hts) h1
-  · use t
-    exact h1
+  · grind
 
 lemma We_finite_iff_We_eq_Ws (h : ∃ t, W e = W_s e t) : (W e).Finite := by
   obtain ⟨t, h⟩ := h
@@ -664,16 +621,7 @@ lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s > t, PhiNew e s
       exact subset_antisymm h1 (W_s_mono (Nat.le_add_right s 1))
   induction s with | zero | succ s ih
   · tauto
-  · intro h2
-    have h3 := h2
-    apply h1 at h2
-    simp only at h2
-    rw [h2]
-    by_cases h4 : s > t
-    · exact Finset.val_inj.mp (congrArg Finset.val (ih h4))
-    · have h5 := Eq.symm (Nat.eq_of_lt_succ_of_not_lt h3 h4)
-      rw [h5]
-      exact Finset.val_inj.mp rfl
+  · grind
 
 theorem We_finite_TFAE (e : ℕ) :
     [(W e).Finite,                          --1
