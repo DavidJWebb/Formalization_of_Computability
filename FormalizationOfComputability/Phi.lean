@@ -243,7 +243,7 @@ lemma phi_halts_mono_reverse (h : s ≤ t) (h1 : ¬ Phi_s_halts e t n) : ¬ Phi_
 
 /- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
 @[grind, simp]
-def runtime (e n : ℕ) : Part ℕ := rfind (fun s => (Phi_s e (s) n).isSome)
+def runtime (e n : ℕ) : Part ℕ := rfind (fun s => (Phi_s e s n).isSome)
 
 /- TODO: runtime lemmas can be cleaned up with Nat.rfind spec/min? -/
 /- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
@@ -252,7 +252,7 @@ lemma runtime_spec (r : ℕ) (h : r ∈ runtime e n) : Phi_s_halts e r n := by
   simp_all only [runtime, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, Bool.false_eq,
   Option.isSome_eq_false_iff, Option.isNone_iff_eq_none, Phi_s_halts]
 
-lemma runtime_min (r t : ℕ) (h : r ∈ (runtime e n)) (ht : t < r) : ¬ Phi_s_halts e t n := by
+lemma runtime_min (r : ℕ) (h : r ∈ (runtime e n)) : ∀ t, t < r → ¬ Phi_s_halts e t n := by
   simp_all
 
 /- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
@@ -314,9 +314,13 @@ lemma Ws_zero_empty : W_s e 0 = ∅ := by grind
 @[simp]
 lemma mem_W_phi : n ∈ W e ↔ Phi_halts e n := by exact Eq.to_iff rfl
 
-/- W_{s} ⊆ W_{e, s+1}  -/
+/- Monotonicity of W_s: W_s ⊆ W_{e, s+1}  -/
 @[simp]
 lemma W_s_mono (h : s ≤ t) : (W_s e s) ⊆ (W_s e t) := by grind
+
+/- Reverse monotonicity of W_s-/
+@[simp]
+lemma W_s_mono_reverse (h : s ≤ t) (hx : x ∉ W_s e t) : x ∉ W_s e s := by grind
 
 /- Membership in some W_{e,s} implies runtime r exists, and membership in W_{e, r}-/
 @[grind ., simp]
