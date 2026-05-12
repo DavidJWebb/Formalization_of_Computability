@@ -294,9 +294,8 @@ lemma phi_halts_runtime_exists : Phi_halts e n ↔ ∃ r, r ∈ runtime e n := b
     simpa [Part.dom_iff_mem] using h1
   · intro ⟨r, h⟩
     apply phi_halts_stage_exists.mpr
-    use r
     apply runtime_spec at h
-    exact h
+    exact ⟨r, h⟩
 
 /- ϕₑ,ₛ(n)↓ iff n ∈ Wₑ,ₛ -/
 @[simp]

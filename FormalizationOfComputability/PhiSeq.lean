@@ -26,7 +26,6 @@ these elements are less than s. -/
 def PhiNew (e s : ℕ) : Finset ℕ := (W_s e s).filter (λ n ↦ ¬ Phi_s_halts e (s-1) n)
 
 instance (e s n : ℕ) : Decidable (n ∈ PhiNew e s) := by
-  unfold PhiNew
   apply Finset.decidableMem
 
 lemma PhiNew_zero (e : ℕ) : PhiNew e 0 = ∅ := by simp [PhiNew]
@@ -274,7 +273,6 @@ lemma enter_queue_PhiNewList (e : ℕ) (h : s ≥ t) :
       simp
       use k
       simp [PhiNewList, xh]
-
 
 /- The queue at stage s is a suffix of WPrefix e s.
 This is mostly here so that it's easy to show that enter queues have no duplicates -/
