@@ -61,58 +61,6 @@ lemma set_delta01_evens : Computable.set Evens := Computable.primrec Primrec.set
 
 lemma set_sigma01_evens : Sigma01 Evens := Partrec.computable set_delta01_evens
 
-def Pi01 (X : Set ℕ): Prop := Sigma01 Xᶜ
-
-theorem delta01_is_sigma01 (X : Set ℕ) (h: Delta01 X) : Sigma01 X := Partrec.computable h
-
-theorem delta01_is_pi01 (X : Set ℕ) (h: Delta01 X) : Pi01 X :=
-  Partrec.computable (Computable.compl h)
-
--- if (W_e e1) = X and (W_e e2) = X^c, then ∀ n ∈ ℕ,
--- ∃ s Wenum e1 s = n ↔ n ∈ W e
-
-theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧ Pi01 X := by
-  constructor
-  · intro h
-    constructor
-    · apply delta01_is_sigma01
-      exact h
-    · apply delta01_is_pi01
-      exact h
-  · intro h
-    unfold Pi01 at h
-    obtain ⟨XSigma, XcSigma⟩ := h
-    apply Sigma01_is_W at XSigma
-    obtain ⟨e1, hX⟩ := XSigma
-    apply Sigma01_is_W at XcSigma
-    obtain ⟨e2, hXc⟩ := XcSigma
-    have henum : ∀ (n : ℕ), ∃ s, ((Wenum e1 s = n) ∨ (Wenum e2 s = n)) := by
-      intro n
-      by_cases h : (∃ s, Wenum e1 s = some n)
-      · obtain ⟨s, h⟩ := h
-        use s
-        exact Or.inl h
-      · apply exists_or.mpr ?_
-        apply Or.inr
-        have hn : n ∈ Xᶜ := by
-          simp only [Set.mem_compl_iff]
-          contrapose h
-          rw [hX] at h
-          apply ((We_mem_TFAE e1 n).out 0 3).mp at h
-          obtain ⟨s, h⟩ := h
-          use s
-          simp only [h]
-        rw [hXc] at hn
-        apply ((We_mem_TFAE e2 n).out 0 3).mp at hn
-        obtain ⟨s, h⟩ := hn
-        use s
-        simp [h]
-    --obtain ⟨⟨f, ⟨fSigma, fSpec⟩⟩, ⟨g, ⟨gPi, gSpec⟩⟩⟩ := h
-    unfold Delta01 Computable.set Computable
-
-    --
-    sorry
-
 -- nat_pi01
 -- empty_set_pi01
 -- singleton_pi01
@@ -140,20 +88,10 @@ exact h
 -- cofinite_set_pi01
 -- set_pi01_eq_star_iff
 
-def nat_function_partrec (f : ℕ →. Unit) : ℕ →. ℕ :=
-f.map (fun _ => 1)
-
 lemma sigma01_has_delta01_subset (X : Set ℕ) (hX : Sigma01 X) (hInf : X.Infinite):
-∃ (Y : Set ℕ), Delta01 Y ∧ Y.Infinite ∧ Y ⊆ X ∧ (X\Y).Infinite := by
+∃ (Y : Set ℕ), Delta01 Y ∧ Y.Infinite ∧ Y ⊆ X := by
 obtain ⟨f, ⟨hfPart, hfDom⟩⟩ := hX
-let g := f.map (fun _ => 1)
-have hfg : ∀ (x:ℕ), (f x) = some () ↔ (g x) = 1 := by
-  sorry
-have hgPart : Nat.Partrec g := by
-  sorry
-rw [Nat.Partrec.Code.exists_code] at hgPart
-obtain ⟨e, he⟩ := hgPart
-sorry
+-- x ∈ Y ↔ ∃ s, (x = Wenum' e s ∧ ∀ t < s, (Wenum' e t) < (Wenum' e s))
 
 def Immune (X : Set ℕ) : Prop := ∀ (Y : Set ℕ), (Delta01 Y ∧ Y.Infinite) → ¬ (Y ⊆ X)
 --equivalently, this can be defined with Sigma01 sets - see below
@@ -338,7 +276,7 @@ rw [Or.comm]
 exact hC Xᶜ hX
 
 def Pi01Immune (X : Set ℕ) : Prop :=
-∀ (Y : Set ℕ), (Pi01 Y) → (Y.Infinite) → ¬Y⊆X
+  ∀ (Y : Set ℕ), (Pi01 Y) → (Y.Infinite) → ¬Y⊆X
 
 theorem pi01Immune_is_immune (X : Set ℕ) (hX: Pi01Immune X) : Immune X := by
   by_contra h
@@ -363,7 +301,7 @@ theorem Pi01Cohesive (C : Set ℕ) (hC: Cohesive C): Inf_coinf C → (Pi01 C ↔
   constructor
   · intro hP
     use C -- this direction is trivial, as C ⊆ C ∈ Π⁰₁
-  · intro h3 -- first say let Y be an infinite Π⁰₁ subset of C
+  · intro h3 -- first let Y be an infinite Π⁰₁ subset of C
     obtain ⟨Y, ⟨hYPi, ⟨hYInf, hXC⟩⟩⟩ := h3
     have hY1: Y ∩ C = Y := by simp [hXC]
     have h2: ((Y∩C).Finite  ∨ (Yᶜ∩C).Finite) := Coh_not_split_Pi01 C hC Y hYPi
