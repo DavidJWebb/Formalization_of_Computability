@@ -258,7 +258,8 @@ lemma ϕ_halts_runtime_exists : ϕ_halts e n ↔ ∃ r, r ∈ runtime e n := by
     apply runtime_spec at h
     exact ⟨r, h⟩
 
-/- Wₑ,ₛ = the domain of ϕₑ,ₛ. As all inputs n ≥ s do not halt, this set is necessarily finite. -/
+/- Wₑ,ₛ = the domain of ϕₑ,ₛ, i.e. elements entering before stage s.
+As all inputs n ≥ s do not halt, this set is necessarily finite. -/
 @[grind, simp]
 def W_s (e s : ℕ): Finset ℕ := (Finset.range s).filter (ϕ_s_halts e s)
 
