@@ -89,9 +89,10 @@ exact h
 -- set_pi01_eq_star_iff
 
 lemma sigma01_has_delta01_subset (X : Set ℕ) (hX : Sigma01 X) (hInf : X.Infinite):
-∃ (Y : Set ℕ), Delta01 Y ∧ Y.Infinite ∧ Y ⊆ X := by
-obtain ⟨f, ⟨hfPart, hfDom⟩⟩ := hX
--- x ∈ Y ↔ ∃ s, (x = Wenum' e s ∧ ∀ t < s, (Wenum' e t) < (Wenum' e s))
+∃ (Y : Set ℕ), Delta01 Y ∧ Y.Infinite ∧ Y ⊆ X ∧ (X \ Y).Infinite:= by
+  obtain ⟨f, ⟨hfPart, hfDom⟩⟩ := hX
+  sorry
+  -- x ∈ Y ↔ ∃ s, (x = Wenum' e s ∧ ∀ t < s, (Wenum' e t) < (Wenum' e s))
 
 def Immune (X : Set ℕ) : Prop := ∀ (Y : Set ℕ), (Delta01 Y ∧ Y.Infinite) → ¬ (Y ⊆ X)
 --equivalently, this can be defined with Sigma01 sets - see below
@@ -197,11 +198,9 @@ lemma cohesive_is_not_sigma01 (C : Set ℕ) (hC : Cohesive C) (hCInf : C.Infinit
   rw [← Set.inter_eq_left] at hYC
   rw [hYC]
   simp
-  constructor
-  · rw [← Set.not_finite]
-    exact hYInf
-  · rw [← Set.diff_eq_compl_inter]
-    exact hY2
+  rw [← Set.not_finite, ← Set.diff_eq_compl_inter]
+  simp_all only [forall_const, Set.inter_eq_left, Set.Infinite.not_finite, not_false_eq_true,
+    and_self]
 
 theorem cemaximal_iff_compl_cohesive (M : Set ℕ) (hM: Sigma01 M) :
     CEMaximal M ↔ Cohesive Mᶜ := by
