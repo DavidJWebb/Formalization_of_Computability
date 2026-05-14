@@ -517,7 +517,7 @@ theorem We_mem_TFAE (e n : ℕ) :
 Indeed iff is true, see TFAE below. -/
 
 lemma queue_depletes (h : (W e).Finite) :
-    ∃ t, ∀ s > t, enter_queue e s = [] := by
+    ∃ t, ∀ s ≥ t, enter_queue e s = [] := by
   rw [We_finite_iff_ϕNew_stabilizes] at h
   obtain ⟨t, h⟩ := h -- unfortunately the queue at stage t may not be empty
   use t+(enter_queue e t).length
@@ -546,19 +546,21 @@ lemma queue_depletes (h : (W e).Finite) :
   grind
 
 /-- TODO: the deepest case of this proof is truly horrible, and reused below. Extract! Fix!-/
-lemma Wenum_finite_iff (e : ℕ) : (W e).Finite ↔ ∃ s, ∀ t > s, Wenum e t = Option.none := by
+lemma Wenum_finite_iff (e : ℕ) : (W e).Finite ↔ ∃ s, ∀ t ≥ s, Wenum e t = Option.none := by
   constructor
   · intro h
     have ⟨s, h1⟩ := queue_depletes h
     use s
     intro t ht
-    simp_all only [Wenum, new_element, head?_eq_none_iff, gt_iff_lt]
+    simp_all only [Wenum, new_element, head?_eq_none_iff]
   · rw [We_finite_iff_ϕNew_stabilizes]
     intro ⟨t, h⟩
     use t
     intro s h1
-    simp only [gt_iff_lt, Wenum, new_element, head?_eq_none_iff] at h
-    have h2 : enter_queue e s = [] := by simp_all
+    simp only [Wenum, new_element, head?_eq_none_iff] at h
+    have h2 : enter_queue e s = [] := by
+      apply h
+      exact le_of_succ_le h1
     cases s with | zero | succ s
     · tauto
     · unfold enter_queue at h2
@@ -572,14 +574,14 @@ lemma Wenum_finite_iff (e : ℕ) : (W e).Finite ↔ ∃ s, ∀ t > s, Wenum e t 
       exact ne_nil_of_mem this
 
 
-lemma Wenum_infinite_iff (e : ℕ) : (W e).Infinite ↔ ∀ s, ∃ t > s, ∃ n, Wenum e t = some n := by
+lemma Wenum_infinite_iff (e : ℕ) : (W e).Infinite ↔ ∀ s, ∃ t ≥ s, ∃ n, Wenum e t = some n := by
   have h := Wenum_finite_iff e
   have h1 : ¬ (W e).Finite ↔ (W e).Infinite := Iff.symm (Eq.to_iff rfl)
   simp_all [Option.ne_none_iff_exists']
 
 -- the following are here just to prove the TFAE statement
-lemma queue_depletes_implies_ϕNew_stabilizes (h : ∃ t, ∀ s > t, enter_queue e s = []) :
-    ∃ t, ∀ s > t, ϕNew e s = ∅ := by
+lemma queue_depletes_implies_ϕNew_stabilizes (h : ∃ t, ∀ s ≥ t, enter_queue e s = []) :
+    ∃ t, ∀ s ≥ t, ϕNew e s = ∅ := by
   obtain ⟨t, h⟩ := h
   use t
   intro s hts
@@ -600,7 +602,7 @@ lemma queue_depletes_implies_ϕNew_stabilizes (h : ∃ t, ∀ s > t, enter_queue
       exact ne_nil_of_mem this
 
 
-lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s > t, W_s e s = W_s e t) :
+lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s ≥ t, W_s e s = W_s e t) :
     ∃ t, W e = W_s e t := by
   obtain ⟨t, h⟩ := h
   use t
@@ -619,12 +621,12 @@ lemma We_finite_iff_We_eq_Ws (h : ∃ t, W e = W_s e t) : (W e).Finite := by
   rw [h]
   exact Finset.finite_toSet (W_s e t)
 
-lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s > t, ϕNew e s = ∅) :
-    ∃ t, ∀ s > t, W_s e s = W_s e t := by
+lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s ≥ t, ϕNew e s = ∅) :
+    ∃ t, ∀ s ≥ t, W_s e s = W_s e t := by
   obtain ⟨t, h⟩ := h
   use t
   intro s
-  have h1 : ∀ s > t, W_s e s = W_s e (s-1) := by
+  have h1 : ∀ s ≥ t, W_s e s = W_s e (s-1) := by
     intro s h1
     induction s with | zero | succ s ih
     · tauto
@@ -634,16 +636,15 @@ lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s > t, ϕNew e s 
       simp at h1
       exact subset_antisymm h1 (W_s_mono (Nat.le_add_right s 1))
   induction s with | zero | succ s ih
-  · tauto
-  · grind
+  <;> grind
 
 theorem We_finite_TFAE (e : ℕ) :
     [(W e).Finite,                          --1
-      ∃ t, ∀ s > t, ϕNew e s = ∅,         --2
-      ∃ t, ∀ s > t, W_s e s = W_s e t,      --3
+      ∃ t, ∀ s ≥ t, ϕNew e s = ∅,         --2
+      ∃ t, ∀ s ≥ t, W_s e s = W_s e t,      --3
       ∃ t, W e = W_s e t,                   --4
-      ∃ t, ∀ s > t, enter_queue e s = [],   --5
-      ∃ t, ∀ s > t, Wenum e s = Option.none --6
+      ∃ t, ∀ s ≥ t, enter_queue e s = [],   --5
+      ∃ t, ∀ s ≥ t, Wenum e s = Option.none --6
     ].TFAE := by
   tfae_have 1 → 5 := queue_depletes
   tfae_have 5 → 2 := queue_depletes_implies_ϕNew_stabilizes
@@ -655,14 +656,14 @@ theorem We_finite_TFAE (e : ℕ) :
 
 theorem We_infinite_TFAE (e : ℕ) :
     [(W e).Infinite,                         --1
-      ∀ t, ∃ s > t, ϕNew e s ≠ ∅,        --2
-      ∀ t, ∃ s > t, W_s e s ≠ W_s e t,       --3
+      ∀ t, ∃ s ≥ t, ϕNew e s ≠ ∅,        --2
+      ∀ t, ∃ s ≥ t, W_s e s ≠ W_s e t,       --3
       ∀ t, W e ≠ W_s e t,                    --4
-      ∀ t, ∃ s > t, enter_queue e s ≠ [],   --5
-      ∀ t, ∃ s > t, Wenum e s ≠ Option.none  --6
+      ∀ t, ∃ s ≥ t, enter_queue e s ≠ [],   --5
+      ∀ t, ∃ s ≥ t, ∃ n, Wenum e s = some n  --6
     ].TFAE := by
     have h := tfae_not_iff.mpr (We_finite_TFAE e)
     simp only [map] at h
     push_neg at h
-    simp only [Finset.nonempty_iff_ne_empty] at h
+    simp only [Finset.nonempty_iff_ne_empty, Option.ne_none_iff_exists'] at h
     exact h
