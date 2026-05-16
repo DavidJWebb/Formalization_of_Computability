@@ -86,7 +86,6 @@ namespace Primrec
 
 open Primrec
 
-
 variable {X Y : Set ℕ}
 /-- Primitive recursive subsets of ℕ are those with primitive recursive characteristic functions -/
 def set (X : Set ℕ) : Prop := (∃ (f : ℕ → Bool), Primrec f ∧ ∀ x, x ∈ X ↔ f x = true)

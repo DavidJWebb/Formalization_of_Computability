@@ -25,8 +25,7 @@ open List --hiding isSome_getElem?
 these elements are less than s. -/
 def ϕNew (e s : ℕ) : Finset ℕ := (W_s e s).filter (λ n ↦ ϕ_s e (s-1) n = Option.none)
 
-instance (e s n : ℕ) : Decidable (n ∈ ϕNew e s) := by
-  apply Finset.decidableMem
+instance (e s n : ℕ) : Decidable (n ∈ ϕNew e s) := by apply Finset.decidableMem
 
 lemma ϕNew_zero (e : ℕ) : ϕNew e 0 = ∅ := by simp [ϕNew]
 
@@ -482,6 +481,13 @@ instance Wenum_dec (e : ℕ) : DecidablePred (fun k => ∃ s, Wenum e k = some s
   simp only [h (enter_queue e n), ne_eq]
   push_neg
   exact instDecidableNot
+
+instance Wenum_comp : Computable (Wenum e)  := by
+  unfold Wenum new_element
+  refine Computable.comp (Primrec.to_comp Primrec.list_head?) ?_
+  sorry
+  --change Computable fun s : ℕ => Nat.rec ([] : List ℕ)
+  --    (fun t q => q.tail ++ (ϕNew e (t + 1)).sort) s
 
 lemma ϕ_halts_Wenum (e n : ℕ) : ϕ_halts e n ↔ ∃ s, n = Wenum e s := by
   rw [← enter_queue_mem]
