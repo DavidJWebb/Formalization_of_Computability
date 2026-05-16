@@ -75,12 +75,7 @@ lemma encode_ofNatCode : ∀ n, encodeCode (ofNatCode n) = n
     cases n.bodd <;> cases n.div2.bodd <;>
       simp [m, encodeCode, IH, IH1, IH2, bit_val]
 
-private lemma helperlemma (x : ℕ) : Option.none = some x → False := by
-    intro h
-    simp_all only [reduceCtorEq]
-
 variable {e s t n x y : ℕ} {X : Set ℕ}
-
 
 /- ϕₑ,ₛ(n), the eth Turing program evaluated for s steps on input n.
 Following Soare, we require the index, input, and output to be less than s -/
@@ -160,26 +155,60 @@ open Primrec
 
 -- a helper lemma for showing that ϕ_s is primitive recursive
 private lemma bounded_exists (f : ℕ → ℕ → Prop) (s : ℕ) [DecidableRel f]
-    (hf : PrimrecRel f) :
-      PrimrecPred (λ n => ∃ y < s, (f y n)) := by
-    have h := PrimrecRel.exists_mem_list hf
-    unfold PrimrecRel at h
+  (hf : PrimrecRel f) :
+    PrimrecPred (λ n => ∃ y < s, (f y n)) := by
+    replace hf := PrimrecRel.exists_mem_list hf
+    unfold PrimrecRel at hf
     have hpair : Primrec (λ n : ℕ => (List.range s, n)) :=
       (Primrec.const (List.range s)).pair Primrec.id
-    have h3 := h.comp hpair
+    replace hf := hf.comp hpair
     simp_all only [List.mem_range]
 
+private lemma bounded_exists_var
+    (f : ℕ → ℕ × ℕ → Prop) [DecidableRel f]
+    (hf : PrimrecRel f) :
+    PrimrecPred (fun x : ℕ × ℕ => ∃ y < x.1, f y x) := by
+  replace hf := PrimrecRel.exists_mem_list hf
+  unfold PrimrecRel at hf
+  have hpair : Primrec (fun x : ℕ × ℕ => (List.range x.1, x)) := by
+    exact (Primrec.list_range.comp Primrec.fst).pair Primrec.id
+  replace hf := hf.comp hpair
+  simpa only [List.mem_range] using hf
+
 /- ϕₑ,ₛ is a primitive recursive function -/
-lemma ϕ_s_primrec : Primrec (ϕ_s e s) := by
-  have h := primrec_evaln.comp (pair (pair (const s) (const (ofNatCode e))) .id)
-  apply ite (PrimrecPred.and (PrimrecRel.comp nat_lt (const e) (const s)) ?_) h (const Option.none)
-  apply bounded_exists
+lemma ϕ_s_primrec : Primrec₂ (ϕ_s e) := by
+  unfold Primrec₂
+  have h := primrec_evaln.comp (pair (pair fst (const (ofNatCode e))) snd)
+  apply ite (PrimrecPred.and (PrimrecRel.comp nat_lt (const e) fst) ?_) h (const Option.none)
+  apply bounded_exists_var
   simp only [PrimrecRel, Option.mem_def]
   exact PrimrecRel.comp Primrec.eq (.comp h snd) (option_some_iff.mpr fst)
 
-/- ϕ_s_halts is a primitive recursive predicate -/
-lemma ϕ_s_halts_primrec : PrimrecPred (ϕ_s_halts e s) := by
-  have h (n : ℕ) : (∃ x, ϕ_s e s n = some x) ↔ (∃ x < s, ϕ_s e s n = some x) := by
+-- /- ϕₑ,ₛ is a primitive recursive function -/
+-- lemma ϕ_s_primrec' : Primrec (ϕ_s e s) := by
+--   have h := primrec_evaln.comp (pair (pair (const s) (const (ofNatCode e))) .id)
+--   apply ite (PrimrecPred.and (PrimrecRel.comp nat_lt (const e) (const s)) ?_) h (const Option.none)
+--   apply bounded_exists
+--   simp only [PrimrecRel, Option.mem_def]
+--   exact PrimrecRel.comp Primrec.eq (.comp h snd) (option_some_iff.mpr fst)
+
+-- /- ϕ_s_halts is a primitive recursive predicate -/
+-- lemma ϕ_s_halts_primrec : PrimrecPred (ϕ_s_halts e s) := by
+--   have h (n : ℕ) : (∃ x, ϕ_s e s n = some x) ↔ (∃ x < s, ϕ_s e s n = some x) := by
+--     constructor
+--     · intro ⟨x, h⟩
+--       use x
+--       simp only [ϕ_output_bound h, h, and_self]
+--     · simp_all
+--   unfold ϕ_s_halts
+--   simp only [Option.isSome_iff_exists, h]
+--   apply bounded_exists
+--   apply PrimrecRel.comp₂ Primrec.eq (comp₂ (ϕ_s_primrec) (Primrec₂.right))
+--   exact comp₂ option_some Primrec₂.left
+
+lemma ϕ_s_halts_primrec (e : ℕ) :
+    PrimrecPred fun (s, n) => ϕ_s_halts e s n := by
+  have h (s n : ℕ) : (∃ x, ϕ_s e s n = some x) ↔ (∃ x < s, ϕ_s e s n = some x) := by
     constructor
     · intro ⟨x, h⟩
       use x
@@ -187,17 +216,24 @@ lemma ϕ_s_halts_primrec : PrimrecPred (ϕ_s_halts e s) := by
     · simp_all
   unfold ϕ_s_halts
   simp only [Option.isSome_iff_exists, h]
-  apply bounded_exists
-  apply PrimrecRel.comp₂ Primrec.eq (comp₂ (ϕ_s_primrec) (Primrec₂.right))
-  exact comp₂ option_some Primrec₂.left
+  apply bounded_exists_var
+  refine PrimrecRel.comp₂ Primrec.eq ?_ (Primrec₂.option_some_iff.mpr Primrec₂.left)
+  refine Primrec₂.comp₂ ϕ_s_primrec (comp₂ fst Primrec₂.right) (comp₂ snd Primrec₂.right)
+
+lemma ϕ_s_halts_primrecRel (e : ℕ) :
+    PrimrecRel (fun n s : ℕ => ϕ_s_halts e s n) := by
+  unfold ϕ_s_halts
+  apply Primrec.primrecPred
+  simpa [Option.isSome_iff_exists] using
+    Primrec.option_isSome.comp ((ϕ_s_primrec (e := e)).comp snd fst)
 
 /- ϕₑ,ₛ(n) is decidable -/
-instance (e s n : ℕ) : Decidable (ϕ_s e s n).isSome :=
+instance ϕ_s_dec (e s n : ℕ) : Decidable (ϕ_s e s n).isSome :=
   (ϕ_s e s n).isSome.decEq true
 
 /- ϕₑ,ₛ(n) is decidable -/
-instance (e s n : ℕ) : Decidable (ϕ_s_halts e s n) :=
-  instDecidableEqBoolIsSomeNatϕ_sTrue e s n
+instance ϕ_s_halts_dec (e s n : ℕ) : Decidable (ϕ_s_halts e s n) := by
+  exact ϕ_s_dec e s n
 
 /- ϕₑ is a partial computable function -/
 theorem ϕ_partrec : Nat.Partrec (ϕ e) := by
@@ -260,23 +296,41 @@ lemma ϕ_halts_runtime_exists : ϕ_halts e n ↔ ∃ r, r ∈ runtime e n := by
 
 /- Wₑ,ₛ = the domain of ϕₑ,ₛ, i.e. elements entering before stage s.
 As all inputs n ≥ s do not halt, this set is necessarily finite. -/
-@[grind, simp]
-def W_s (e s : ℕ): Finset ℕ := (Finset.range s).filter (ϕ_s_halts e s)
+
+def W_s_list (e s : ℕ): List ℕ := (List.range s).filter (ϕ_s_halts e s)
+
+lemma W_s_list_primrec (e : ℕ) : Primrec fun (s : ℕ) => W_s_list e s := by
+  unfold W_s_list
+  have hrel : PrimrecRel (fun n s : ℕ => ϕ_s_halts e s n) :=
+    ϕ_s_halts_primrecRel e
+  exact
+    ((PrimrecRel.listFilter hrel).comp
+      Primrec.list_range
+      Primrec.id)
+
+def W_s (e s : ℕ) : Finset ℕ := (W_s_list e s).toFinset
+
+lemma W_s_primrec (e : ℕ) : Primrec fun (s : ℕ) ↦ W_s e s := by
+  unfold W_s
+  refine Primrec.comp ?_ (W_s_list_primrec e)
+  unfold List.toFinset
+  refine Primrec.comp ?_ ?_
+  ·
+  ·
+
+@[grind =, simp]
+lemma W_s_mem (e s n : ℕ) : n ∈ W_s e s ↔ n < s ∧ ϕ_s_halts e s n := by
+  unfold W_s W_s_list
+  simp
 
 /- Wₑ = {n | ϕₑ(n)↓} -/
 @[grind, simp]
 def W (e : ℕ) : Set ℕ := (ϕ e).Dom
 
-instance (e s n : ℕ) : Decidable (n ∈ W_s e s) :=
-  Finset.decidableMem n (Finset.filter (ϕ_s_halts e s) (Finset.range s))
+-- instance W_s_dec (e s n : ℕ) : Decidable (n ∈ W_s e s) := by apply Finset.decidableMem
 
 /- The Wₑ,ₛ are primitive recursive-/
-lemma W_s_Primrec : Primrec.set (W_s e s) := by
-  simp only [Primrec.set, W_s, Finset.coe_filter, Finset.mem_range, Set.mem_setOf_eq]
-  use ϕ_s_halts e s
-  constructor
-  · exact Primrec.ite (ϕ_s_halts_primrec) (const true) (const false)
-  · grind
+lemma W_s_Primrec : Primrec.set (W_s e s) := finite (Finset.finite_toSet (W_s e s))
 
 /- The Wₑ are Σ01 -/
 lemma W_Sigma01 (e : ℕ) : Sigma01 (W e) := by
@@ -308,7 +362,7 @@ lemma Sigma01_iff_W : Sigma01 X ↔ ∃ e, X = W e := by grind [Sigma01_is_W, W_
 /- ϕₑ,ₛ(n)↓ iff n ∈ Wₑ,ₛ -/
 @[simp]
 lemma W_s_ϕ_s : n ∈ W_s e s ↔ ϕ_s_halts e s n := by
-  simp_all only [W_s, Finset.mem_filter, Finset.mem_range, ϕ_s_halts, and_iff_right_iff_imp]
+  simp_all [W_s_mem, ϕ_s_halts, and_iff_right_iff_imp]
   exact fun a ↦ ϕ_input_bound a
 
 @[simp]
@@ -341,10 +395,7 @@ lemma Ws_runtime (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n ∧ n ∈ W_s e 
 @[grind! ., simp]
 lemma W_s_subset_W : ↑(W_s e s) ⊆ W e := by
   intro x h
-  rw [mem_W_ϕ]
-  simp only [W_s, Finset.coe_filter, Finset.mem_range, Set.mem_setOf_eq] at h
-  rw [ϕ_complete]
-  grind
+  exact ϕ_sound (W_s_ϕ_s.mp h)
 
 /- Wₑ = ⋃ₛ Wₑ,ₛ -/
 @[grind =, simp]

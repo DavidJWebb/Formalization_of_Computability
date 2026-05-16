@@ -148,7 +148,6 @@ lemma dropNone_countSome {α} (S : Stream' (Option α)) [DecidablePred (fun t =>
             seekSomeIndex_isSome S h (s + 1)⟩
         · refine Nat.find_min' (h (s + 1)) ⟨?_, seekSomeIndex_isSome S h s⟩
           contrapose hs
-          push_neg at hs
           have h1 : seekSomeIndex S h s = s := by
             grind only [seekSomeIndex_gt S h s]
           rw [← h1, seekSome_spec S h s]

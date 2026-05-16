@@ -25,7 +25,7 @@ open List --hiding isSome_getElem?
 these elements are less than s. -/
 def ϕNew (e s : ℕ) : Finset ℕ := (W_s e s).filter (λ n ↦ ϕ_s e (s-1) n = Option.none)
 
-instance (e s n : ℕ) : Decidable (n ∈ ϕNew e s) := by apply Finset.decidableMem
+instance ϕNew_dec (e s n : ℕ) : Decidable (n ∈ ϕNew e s) := by apply Finset.decidableMem
 
 lemma ϕNew_zero (e : ℕ) : ϕNew e 0 = ∅ := by simp [ϕNew]
 
@@ -100,7 +100,7 @@ lemma ϕNew_runtime_iff (e x r : ℕ) : x ∈ ϕNew e r ↔ r ∈ runtime e x :=
       grind
 
 /- W_e can be created as a disjoint union of new elements-/
-lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (ϕNew e s) := by
+lemma We_eq_union_ϕNew (e : ℕ) : W e = ⋃ s, (ϕNew e s) := by
   rw [W_eq_union_W_s]
   apply subset_antisymm
   <;> intro x h
@@ -121,7 +121,7 @@ There is an s such that W_e = W_{e, s}
 /- TODO : Move any implications not needed for lemmas to the TFAE -/
 lemma ϕNew_stabilizes_implies_We_finite (e s : ℕ) (h : ∀ t > s, ϕNew e t = ∅) :
     (W e).Finite := by
-  rw [We_eq_union_WsNew, Set.finite_iUnion_iff]
+  rw [We_eq_union_ϕNew, Set.finite_iUnion_iff]
   · simp only [Finset.finite_toSet, implies_true, Finset.coe_nonempty, true_and]
     apply Set.Finite.subset (Set.finite_le_nat s)
     grind
@@ -133,7 +133,7 @@ lemma ϕNew_stabilizes_implies_We_finite (e s : ℕ) (h : ∀ t > s, ϕNew e t =
 
 lemma We_finite_implies_ϕNew_stabilizes (e : ℕ) (h : (W e).Finite) :
     ∃ s, ∀ t > s, ϕNew e t = ∅ := by
-  rw [We_eq_union_WsNew, Set.finite_iUnion_iff] at h
+  rw [We_eq_union_ϕNew, Set.finite_iUnion_iff] at h
   simp only [Finset.finite_toSet, implies_true, Finset.coe_nonempty, true_and] at h
   have h1 := Set.Finite.exists_finset h
   obtain ⟨P, h1⟩ := h1
@@ -161,6 +161,10 @@ lemma We_finite_iff_ϕNew_stabilizes (e : ℕ) :
 
 def ϕNewList (e s : ℕ):= (ϕNew e s).sort
 
+instance ϕNewList_dec (e s n : ℕ) : Decidable (n ∈ ϕNewList e s) := by
+  simp_rw [← mem_toFinset]
+  apply Finset.decidableMem
+
 /- The elements in W_e enumerated up to stage s, in the order they appeared. Elements halting
 at the same time are enumerated in asceding order. -/
 def WPrefix (e : ℕ) : ℕ → List ℕ
@@ -170,10 +174,14 @@ def WPrefix (e : ℕ) : ℕ → List ℕ
 /- WPrefix e s is exactly W_{e, s} in order of enumeration -/
 lemma Ws_eq_prefix (e s : ℕ) : W_s e s = (WPrefix e s).toFinset := by
   induction s with | zero | succ s hs
-  · simp only [W_s, Finset.range_zero, Finset.filter_empty, WPrefix, toFinset_nil]
+  · exact Finset.val_inj.mp rfl
   · rw [Ws_eq]
     unfold WPrefix ϕNewList
     simp_all only [W_s, add_tsub_cancel_right, toFinset_append, Finset.sort_toFinset]
+
+instance WPrefix_dec (e s n : ℕ) : Decidable (n ∈ WPrefix e s) := by
+  simp_rw [← mem_toFinset]
+  apply Finset.decidableMem
 
 /- Elements cannot be enumerated twice-/
 lemma nodup_WPrefix (e s : ℕ) : Nodup (WPrefix e s) := by
@@ -207,6 +215,15 @@ i.e. the head of this list will be enumerated at stage s. -/
 def enter_queue (e : ℕ) : ℕ → List ℕ
   | 0 => []
   | s + 1 => (enter_queue e s).tail ++ (ϕNew e (s+1)).sort
+
+instance enter_queue_dec (e s n : ℕ) : Decidable (n ∈ enter_queue e s) := by
+  simp_rw [← mem_toFinset]
+  apply Finset.decidableMem
+
+instance enter_queue_comp (e : ℕ) : Computable (enter_queue e) := by
+  unfold Computable
+
+
 
 /- If n is in the queue at stage s, then ϕ_{e, s}(n)↓ -/
 lemma enter_queue_halts (h : n ∈ enter_queue e s) : ϕ_s_halts e s n := by
@@ -334,7 +351,7 @@ lemma enter_queue_dec_stage (h : n ∈ (enter_queue e s).tail) :
       linarith
 
 /- If n is in the sth queue at position k, then for l≤k, it has index k-l in the (s+l)th queue -/
-lemma enter_queue_dec (h : List.idxOf? n (enter_queue e s) = some k) (h1 : l ≤ k) :
+lemma enter_queue_succ (h : List.idxOf? n (enter_queue e s) = some k) (h1 : l ≤ k) :
     n ∈ enter_queue e (s+l) ∧ List.idxOf? n (enter_queue e (s+l)) = some (k - l) := by
   have h2 := idxOf?_mem (id (Eq.symm h))
   have h3 := h2
@@ -368,7 +385,7 @@ def new_element (e s : ℕ) : Option ℕ := (enter_queue e s).head?
 lemma enter_queue_enum_exact (h : List.idxOf? n (enter_queue e s) = some k) :
     new_element e (s+k) = n := by
   have h1 : k ≤ k := by rfl
-  apply enter_queue_dec h at h1
+  apply enter_queue_succ h at h1
   simp only [tsub_self] at h1
   obtain ⟨_, h1⟩ := h1
   rw [eq_comm, new_element, index_head, ← idxOf?_getElem?_iff]
@@ -422,7 +439,7 @@ lemma enter_queue_exit_exact (h : List.idxOf? n (enter_queue e s) = some k) :
     simp only [ϕNew_runtime_iff] at h2
     apply runtime_min at h2
     contrapose h2
-    push_neg
+    push Not
     apply not_le.mp at h2
     use s
   have h4 : ∀ i, Disjoint (ϕNew e r) (ϕNew e (s+k+1+i)) := by
@@ -476,10 +493,9 @@ instance Wenum_dec (e : ℕ) : DecidablePred (fun k => ∃ s, Wenum e k = some s
       refine List.ne_nil_of_length_pos (List.length_pos_iff_exists_mem.mpr ?_)
       exact ⟨s, List.mem_of_mem_head? h⟩
     · contrapose h
-      push_neg at h
+      push Not at h
       exact List.head?_eq_none_iff.mp (Option.eq_none_iff_forall_ne_some.mpr h)
   simp only [h (enter_queue e n), ne_eq]
-  push_neg
   exact instDecidableNot
 
 instance Wenum_comp : Computable (Wenum e)  := by
@@ -670,6 +686,6 @@ theorem We_infinite_TFAE (e : ℕ) :
     ].TFAE := by
     have h := tfae_not_iff.mpr (We_finite_TFAE e)
     simp only [map] at h
-    push_neg at h
+    push Not at h
     simp only [Finset.nonempty_iff_ne_empty, Option.ne_none_iff_exists'] at h
     exact h
