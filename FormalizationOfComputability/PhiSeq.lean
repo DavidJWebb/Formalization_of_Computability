@@ -20,70 +20,87 @@ open Nat.Partrec
 open Nat.Partrec.Code
 open List --hiding isSome_getElem?
 
-/- The elements whose computations first halt at stage s, in increasing order. By definition,
+
+/- The elements whose computations first halt at stage s. By definition,
 these elements are less than s. -/
-def PhiNewList (e s : ℕ) : List ℕ :=
-  (range s).filter (λ n ↦ (Phi_s_halts e s n ∧ ¬ Phi_s_halts e (s-1) n))
+def ϕNew (e s : ℕ) : Finset ℕ := (W_s e s).filter (λ n ↦ ϕ_s e (s-1) n = Option.none)
 
-def PhiNew (e s : ℕ) : Finset ℕ := (PhiNewList e s).toFinset
+instance (e s n : ℕ) : Decidable (n ∈ ϕNew e s) := by apply Finset.decidableMem
 
-lemma PhiNewList_zero (e : ℕ) : PhiNewList e 0 = ∅ := by simp [PhiNewList]
+lemma ϕNew_zero (e : ℕ) : ϕNew e 0 = ∅ := by simp [ϕNew]
 
 variable {e s t n x y i k l : ℕ}
 
-/- A helper lemma for moving between the list and set forms-/
-lemma PhiNewList_mem (e s x : ℕ) : x ∈ PhiNewList e s ↔ x ∈ PhiNew e s := by
-  simp [PhiNewList, PhiNew]
-
 /- This lemma cleans up lines that would otherwise be a rather lengthy simp only -/
-lemma PhiNew_mem_lemma (e s x : ℕ) :
-    x ∈ PhiNew e s ↔ (x < s ∧ Phi_s_halts e s x ∧ ¬Phi_s_halts e (s - 1) x) := by
-  simp [PhiNew, PhiNewList]
+lemma ϕNew_mem_lemma :
+    x ∈ ϕNew e s ↔ (x < s ∧ ϕ_s_halts e s x ∧ ¬ϕ_s_halts e (s - 1) x) := by
+  simp [ϕNew]
+  exact and_assoc
 
 /- The elements newly halting at stage s are exactly W_{e, s} \ W_{e, s-1} -/
 @[grind =]
-lemma PhiNew_eq_Ws_diff (e s : ℕ) : (PhiNew e s) = (W_s e s) \ (W_s e (s-1)) := by
-  simp [PhiNew, W_s]
+lemma ϕNew_eq_Ws_diff : (ϕNew e s) = (W_s e s) \ (W_s e (s-1)) := by
+  unfold ϕNew
   apply subset_antisymm
   · intro x
-    simp_all [PhiNewList]
+    simp_all
   · intro x
-    simp only [Finset.mem_sdiff, Finset.mem_filter, Finset.mem_range, not_and, mem_toFinset,
-      and_imp]
-    intro h1 _ h3
-    simp only [PhiNewList, Bool.decide_and, decide_not, mem_filter, mem_range, Bool.and_eq_true,
-      decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not]
-    grind
+    simp only [Finset.mem_sdiff, Finset.mem_filter, and_imp]
+    intro h1 h2
+    constructor
+    · exact h1
+    · rw [W_s_ϕ_s] at h2
+      simp_all
 
-/- Elements never enter twice - the PhiNew are disjoint -/
-lemma PhiNew_disjoint_gt (e : ℕ) (h : s > t) :
-    Disjoint (PhiNew e s) (PhiNew e t) := by
+/- Elements never enter twice - the ϕNew are disjoint -/
+lemma ϕNew_disjoint_gt (h : s > t) : Disjoint (ϕNew e s) (ϕNew e t) := by
   rw [Finset.disjoint_iff_ne]
+  intros a ha b hb
+  have ⟨d, hd⟩ := Nat.exists_eq_add_of_lt h
+  have hb1 : b ∈ W_s e (t+d) := by
+    apply (W_s_mono (Nat.le_add_right t d))
+    rw [ϕNew_eq_Ws_diff, Finset.mem_sdiff] at hb
+    exact hb.left
   grind
 
-lemma PhiNew_pairwise_disjoint (e : ℕ) :
-  Set.PairwiseDisjoint (Set.univ : Set ℕ) (PhiNew e) := by
+lemma ϕNew_pairwise_disjoint (e : ℕ) : Set.PairwiseDisjoint (Set.univ : Set ℕ) (ϕNew e) := by
   intro s _ t _ h
   rw [ne_iff_lt_or_gt] at h
   rcases h with h | h
-  · exact Disjoint.symm (PhiNew_disjoint_gt e h)
-  · exact PhiNew_disjoint_gt e h
+  · exact Disjoint.symm (ϕNew_disjoint_gt h)
+  · exact ϕNew_disjoint_gt h
 
 /- If x is new at stage s, it is not in W_s (elements entering *before* s)-/
-lemma PhiNew_is_new (e s : ℕ) : (PhiNew e s) ∩ (W_s e (s-1)) = ∅ := by simp [PhiNew_eq_Ws_diff]
+lemma ϕNew_is_new (e s : ℕ) : (ϕNew e s) ∩ (W_s e (s-1)) = ∅ := by simp [ϕNew_eq_Ws_diff]
 
 /- It is sometimes useful to work with W_{e,s} instead of W_{e, s+1} -/
-lemma Ws_eq (e s : ℕ) : W_s e s = (W_s e (s-1)) ∪ (PhiNew e s) := by
-    rw [PhiNew_eq_Ws_diff]
+lemma Ws_eq (e s : ℕ) : W_s e s = (W_s e (s-1)) ∪ (ϕNew e s) := by
+    rw [ϕNew_eq_Ws_diff]
     simp only [Finset.union_sdiff_self_eq_union, Finset.right_eq_union]
     apply W_s_mono
     simp only [tsub_le_iff_right, le_add_iff_nonneg_right, _root_.zero_le]
 
 /- The new elements at stage s are exactly those with runtime s -/
-lemma PhiNew_runtime_iff (e x r : ℕ) : x ∈ PhiNew e r ↔ r ∈ runtime e x := by grind
+lemma ϕNew_runtime_iff (e x r : ℕ) : x ∈ ϕNew e r ↔ r ∈ runtime e x := by
+  simp only [runtime, ϕNew_eq_Ws_diff, Finset.mem_sdiff, Part.coe_some, mem_rfind,
+    Part.mem_some_iff, Bool.true_eq, Bool.false_eq, Option.isSome_eq_false_iff,
+    Option.isNone_iff_eq_none]
+  constructor
+  <;> intro ⟨h, h1⟩
+  <;> constructor
+  · exact W_s_ϕ_s.mp h
+  · intro m hm
+    contrapose h1
+    exact W_s_mono (le_sub_one_of_lt hm) (W_s_ϕ_s.mpr (Option.isSome_iff_ne_none.mpr h1))
+  · exact W_s_ϕ_s.mpr h
+  · by_cases hr : r = 0
+    · simp [hr]
+    · have h2 : r-1 < r := by exact Nat.sub_one_lt hr
+      apply h1 at h2
+      grind
 
 /- W_e can be created as a disjoint union of new elements-/
-lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (PhiNew e s) := by
+lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (ϕNew e s) := by
   rw [W_eq_union_W_s]
   apply subset_antisymm
   <;> intro x h
@@ -91,18 +108,18 @@ lemma We_eq_union_WsNew (e : ℕ) : W e = ⋃ s, (PhiNew e s) := by
   · obtain ⟨_, h⟩ := h
     apply Ws_runtime at h
     obtain ⟨r, h⟩ := h
-    simp only [PhiNew_runtime_iff]
+    simp only [ϕNew_runtime_iff]
     exact ⟨r, h.left⟩
   · grind
 
 /- TFAE :
-Eventually all PhiNew e s = ∅
+Eventually all ϕNew e s = ∅
 W_e is finite
 There is an s such that W_e = W_{e, s}
 -/
 
 /- TODO : Move any implications not needed for lemmas to the TFAE -/
-lemma PhiNew_stabilizes_implies_We_finite (e s : ℕ) (h : ∀ t > s, PhiNew e t = ∅) :
+lemma ϕNew_stabilizes_implies_We_finite (e s : ℕ) (h : ∀ t > s, ϕNew e t = ∅) :
     (W e).Finite := by
   rw [We_eq_union_WsNew, Set.finite_iUnion_iff]
   · simp only [Finset.finite_toSet, implies_true, Finset.coe_nonempty, true_and]
@@ -110,12 +127,12 @@ lemma PhiNew_stabilizes_implies_We_finite (e s : ℕ) (h : ∀ t > s, PhiNew e t
     grind
   · simp only [Finset.disjoint_coe]
     intro i j h1
-    apply PhiNew_pairwise_disjoint
+    apply ϕNew_pairwise_disjoint
     <;> simp only [Set.mem_univ, ne_eq]
     exact h1
 
-lemma We_finite_implies_PhiNew_stabilizes (e : ℕ) (h : (W e).Finite) :
-    ∃ s, ∀ t > s, PhiNew e t = ∅ := by
+lemma We_finite_implies_ϕNew_stabilizes (e : ℕ) (h : (W e).Finite) :
+    ∃ s, ∀ t > s, ϕNew e t = ∅ := by
   rw [We_eq_union_WsNew, Set.finite_iUnion_iff] at h
   simp only [Finset.finite_toSet, implies_true, Finset.coe_nonempty, true_and] at h
   have h1 := Set.Finite.exists_finset h
@@ -131,98 +148,47 @@ lemma We_finite_implies_PhiNew_stabilizes (e : ℕ) (h : (W e).Finite) :
       grind
   · simp only [Finset.disjoint_coe]
     intro i j h1
-    apply PhiNew_pairwise_disjoint
+    apply ϕNew_pairwise_disjoint
     <;> simp only [Set.mem_univ, ne_eq]
     exact h1
 
-lemma We_finite_iff_PhiNew_stabilizes (e : ℕ) :
-    (W e).Finite ↔ (∃ t, ∀ s > t, PhiNew e s = ∅) := by
+lemma We_finite_iff_ϕNew_stabilizes (e : ℕ) :
+    (W e).Finite ↔ (∃ t, ∀ s > t, ϕNew e s = ∅) := by
   constructor
-  · exact We_finite_implies_PhiNew_stabilizes e
+  · exact We_finite_implies_ϕNew_stabilizes e
   · intro ⟨_, h⟩
-    exact PhiNew_stabilizes_implies_We_finite _ _ h
+    exact ϕNew_stabilizes_implies_We_finite _ _ h
 
-/- x appears as a new element at its runtime -/
-lemma PhiNew_runtime (y e s : ℕ) : y ∈ PhiNew e s ↔ s ∈ runtime e y := by
-  simp only [runtime, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, Bool.false_eq,
-    Option.isSome_eq_false_iff, Option.isNone_iff_eq_none]
-  constructor
-  <;> simp_all only [PhiNew_mem_lemma]
-  · intro ⟨h, ⟨h1, h2⟩⟩
-    constructor
-    · obtain ⟨x, h1⟩ := h1
-      exact Option.isSome_of_mem h1
-    · intro m hm
-      apply phi_halts_mono_reverse at h2
-      · unfold Phi_s_halts at h2
-        push_neg at h2
-        exact Option.eq_none_iff_forall_ne_some.mpr h2
-      · exact le_sub_one_of_lt hm
-  · intro ⟨h, h1⟩
-    apply Option.isSome_iff_exists.mp at h
-    constructor
-    · exact halt_input_bound h
-    · constructor
-      · exact h
-      · unfold Phi_s_halts
-        grind [Phi_s]
+def ϕNewList (e s : ℕ):= (ϕNew e s).sort
 
-/- The elements in W_e enumerated up to stage s, in the order they appeared -/
+/- The elements in W_e enumerated up to stage s, in the order they appeared. Elements halting
+at the same time are enumerated in asceding order. -/
 def WPrefix (e : ℕ) : ℕ → List ℕ
     | 0     => []
-    | s + 1 => (WPrefix e s) ++ (PhiNewList e (s+1))
+    | s + 1 => (WPrefix e s) ++ ϕNewList e (s+1)
 
 /- WPrefix e s is exactly W_{e, s} in order of enumeration -/
 lemma Ws_eq_prefix (e s : ℕ) : W_s e s = (WPrefix e s).toFinset := by
   induction s with | zero | succ s hs
   · simp only [W_s, Finset.range_zero, Finset.filter_empty, WPrefix, toFinset_nil]
-  · apply subset_antisymm
-    intro y h
-    simp only [WPrefix, toFinset_append, Finset.mem_union, mem_toFinset]
-    by_cases h1 : y ∈ (W_s e s)
-    · left
-      simp only [← mem_toFinset, ← hs, h1]
-    · right
-      simp only [PhiNewList_mem, PhiNew_mem_lemma]
-      simp [W_s] at h
-      constructor
-      · exact h.left
-      · constructor
-        · exact h.right
-        · have h2 : Phi_s_halts e s y → y < s := halt_input_bound
-          simp only [W_s, Finset.mem_filter, Finset.mem_range, not_and] at h1
-          grind
-    · intro x h
-      simp [WPrefix] at h
-      rw [PhiNewList_mem, ← mem_toFinset, ← hs] at h
-      simp only [W_s, Finset.mem_filter, Finset.mem_range]
-      simp only [W_s, Finset.mem_filter, Finset.mem_range] at h
-      rcases h with h | h
-      · constructor
-        · linarith
-        · exact phi_halts_mono (Nat.le_add_right s 1) h.right
-      · grind
-
-lemma WPrefix_mem (e s n : ℕ) : n ∈ WPrefix e s ↔ n ∈ W_s e s := by
-  rw [← mem_toFinset, Ws_eq_prefix]
-
-lemma WPrefix_phi (e n : ℕ) : (∃ s, n ∈ WPrefix e s) ↔ Phi_halts e n := by
-  rw [phi_halts_stage_exists, exists_congr]
-  intro a
-  simp only [WPrefix_mem e a n]
-  exact W_s_Phi_s
+  · rw [Ws_eq]
+    unfold WPrefix ϕNewList
+    simp_all only [W_s, add_tsub_cancel_right, toFinset_append, Finset.sort_toFinset]
 
 /- Elements cannot be enumerated twice-/
 lemma nodup_WPrefix (e s : ℕ) : Nodup (WPrefix e s) := by
   induction s with | zero | succ s ih
   · simp [WPrefix]
-  · simp only [WPrefix]
+  · simp only [WPrefix, ϕNewList]
     apply List.Nodup.append ih
-    · exact List.Nodup.filter _ nodup_range
-    · unfold List.Disjoint
-      simp only [PhiNewList_mem, PhiNew_eq_Ws_diff, Ws_eq_prefix, add_tsub_cancel_right,
-        Finset.mem_sdiff, mem_toFinset]
-      tauto
+    · simp only [Finset.sort_nodup]
+    · rw [ϕNew_eq_Ws_diff]
+      simp only [add_tsub_cancel_right]
+      refine disjoint_left.mpr ?_
+      intro a ha
+      simp only [Finset.mem_sort, Finset.mem_sdiff, not_and]
+      intro hb
+      simp_all only [Ws_eq_prefix, mem_toFinset, not_not]
 
 /- The WPrefixes are prefixes of each other-/
 lemma WPrefix_mono (e s t : ℕ) (h : s ≤ t) :
@@ -240,34 +206,29 @@ of elements waiting to enter. This represents the elements still waiting *at* st
 i.e. the head of this list will be enumerated at stage s. -/
 def enter_queue (e : ℕ) : ℕ → List ℕ
   | 0 => []
-  | s + 1 => (enter_queue e s).tail ++ (PhiNewList e (s+1))
-
-/- The element that has been emitted at stage s, if it exists -/
-def new_element (e s : ℕ) : Option ℕ := (enter_queue e s).head?
-
-/- The sequence of enumerated elements -/
-def Wenum (e : ℕ) : Stream' (Option ℕ) := new_element e
+  | s + 1 => (enter_queue e s).tail ++ (ϕNew e (s+1)).sort
 
 /- If n is in the queue at stage s, then ϕ_{e, s}(n)↓ -/
-lemma enter_queue_halts (h : n ∈ enter_queue e s) : Phi_s_halts e s n := by
+lemma enter_queue_halts (h : n ∈ enter_queue e s) : ϕ_s_halts e s n := by
   induction s with | zero | succ s ih
   · tauto
   · simp only [enter_queue, List.mem_append] at h
     cases h with | inl h | inr h
     · apply List.mem_of_mem_tail at h
       apply ih at h
-      exact phi_halts_mono (Nat.le_add_right s 1) h
-    · simp_all only [PhiNewList_mem, PhiNew_mem_lemma]
+      exact ϕ_halts_mono (Nat.le_add_right s 1) h
+    · simp_all only [ϕ_s_halts, Finset.mem_sort, ϕNew_mem_lemma, add_tsub_cancel_right,
+      Bool.not_eq_true, Option.isSome_eq_false_iff, Option.isNone_iff_eq_none]
 
 /- Elements of the queue are exactly the elements that halt -/
-lemma enter_queue_mem (e n : ℕ) : (∃ s, n ∈ enter_queue e s) ↔ Phi_halts e n := by
+lemma enter_queue_mem (e n : ℕ) : (∃ s, n ∈ enter_queue e s) ↔ ϕ_halts e n := by
   constructor
   · intro ⟨s, h⟩
     apply enter_queue_halts at h
-    apply (phi_halts_stage_exists).mpr
+    apply (ϕ_complete).mpr
     use s
   · intro h
-    simp only [phi_halts_runtime_exists, ← PhiNew_runtime_iff] at h
+    simp only [ϕ_halts_runtime_exists, ← ϕNew_runtime_iff] at h
     obtain ⟨r, h⟩ := h
     use r
     unfold enter_queue
@@ -275,29 +236,35 @@ lemma enter_queue_mem (e n : ℕ) : (∃ s, n ∈ enter_queue e s) ↔ Phi_halts
     · tauto
     · simp only [mem_append]
       right
-      simp [PhiNewList_mem, h]
+      simp [h]
 
 /- A lemma for moving from (enter_queue e s) to (enter_queue e t) -/
-lemma enter_queue_PhiNewList (e : ℕ) (h : s ≥ t) :
-    (enter_queue e s) <:+
-    (enter_queue e t) ++ flatten ((range (s - t)).map (λ i ↦ PhiNewList e (t + i + 1))) := by
+lemma enter_queue_ϕNewList (e : ℕ) (h : s ≥ t) :
+    (enter_queue e s) ⊆
+    (enter_queue e t) ++ flatten ((range (s - t)).map (λ i ↦ ϕNewList e (t + i + 1))) := by
   apply Nat.exists_eq_add_of_le at h
   obtain ⟨k, h⟩ := h
   revert s
   induction k with | zero | succ k ih
   · simp_all
-  · simp_all only [add_tsub_cancel_left, forall_eq, enter_queue, List.range_succ]
-    have ih1 : (enter_queue e (t + k)).tail <:+
-    enter_queue e t ++ (map (fun i ↦ PhiNewList e (t + i + 1)) (range k)).flatten := by
-      apply IsSuffix.trans _ ih
-      apply List.tail_suffix
-    have ih2 : (enter_queue e (t + k)).tail ++ PhiNewList e (t + k + 1) <:+
-    (enter_queue e t ++
-    (map (fun i ↦ PhiNewList e (t + i + 1)) (range k)).flatten) ++ PhiNewList e (t + k + 1) := by
-      obtain ⟨T, ih1⟩ := ih1
-      use T
-      rw [← append_assoc, ih1]
-    simp_all
+  · simp_all only [add_tsub_cancel_left, forall_eq]
+    intro x xh
+    simp [enter_queue] at xh
+    cases xh with | inl xh | inr xh
+    · apply mem_of_mem_tail at xh
+      apply ih at xh
+      simp_all
+      cases xh with | inl xh | inr xh
+      · exact Or.inl xh
+      · apply Or.inr
+        obtain ⟨a, xh⟩ := xh
+        use a
+        exact ⟨Nat.lt_add_right 1 xh.left, xh.right⟩
+    · refine mem_append_right (enter_queue e t) ?_
+      refine mem_flatten.mpr ?_
+      simp
+      use k
+      simp [ϕNewList, xh]
 
 /- The queue at stage s is a suffix of WPrefix e s.
 This is mostly here so that it's easy to show that enter queues have no duplicates -/
@@ -308,11 +275,12 @@ lemma enter_queue_WPrefix (e s : ℕ) :
   · unfold enter_queue WPrefix
     have h1 := List.IsSuffix.trans (tail_suffix (enter_queue e s)) ih
     cases L : (enter_queue e s) with | nil | cons a T
-    · simp
-    · simp only [IsSuffix, L, tail_cons] at h1
+    · exact suffix_append (WPrefix e s) ((ϕNew e (s + 1)).sort fun a b ↦ a ≤ b)
+    · simp [IsSuffix, L, tail_cons] at h1
       obtain ⟨S, h1⟩ := h1
       use S
       simp [← h1]
+      exact toList_toArray
 
 /- The queues have no duplicates. -/
 lemma enter_queue_nodup (e s : ℕ) : Nodup (enter_queue e s) := by
@@ -328,7 +296,10 @@ lemma enter_queue_nodup_elements (h : (enter_queue e s)[k]? = some n) (h1 : i �
   apply List.getElem?_inj at h3
   · tauto
   · grind
-  · exact enter_queue_nodup e s
+  · have ⟨_, h⟩ := enter_queue_WPrefix e s
+    have h1 := nodup_WPrefix e s
+    rw [← h] at h1
+    exact List.Nodup.of_append_right h1
 
 /- If n is not the head of an queue, then at the next step its index decreases by 1. -/
 lemma enter_queue_dec_stage (h : n ∈ (enter_queue e s).tail) :
@@ -382,17 +353,16 @@ lemma enter_queue_dec (h : List.idxOf? n (enter_queue e s) = some k) (h1 : l ≤
     have h5 : n ∈ (enter_queue e (s + l)).tail := by
       rw [index_tail]
       use k-l
-      constructor
-      · exact Nat.le_sub_of_add_le' h1
-      · exact idxOf?_getElem? h4.symm
+      simp only [ge_iff_le, Nat.le_sub_of_add_le' h1, idxOf?_getElem? h4.symm, and_self]
     constructor
     · simp [enter_queue, h5]
     · apply enter_queue_dec_stage at h5
       simp [← add_assoc, h5]
       use k-l
-      constructor
-      · exact h4
-      · rfl
+      grind
+
+/- The element that has been emitted at stage s, if it exists -/
+def new_element (e s : ℕ) : Option ℕ := (enter_queue e s).head?
 
 /- If n is in the sth queue at position k, it is enumerated at stage s+k -/
 lemma enter_queue_enum_exact (h : List.idxOf? n (enter_queue e s) = some k) :
@@ -407,13 +377,21 @@ lemma enter_queue_enum_exact (h : List.idxOf? n (enter_queue e s) = some k) :
 
 /- The stage at which n is enumerated (if any).
 Note that this is *not* the stage at which ϕ_e(n)↓, as n may wait in the enter_queue. -/
-def enum_stage (e n : ℕ) : Part ℕ :=
-  Nat.rfind (fun s => (new_element e s == some n))
+def enum_stage (e n : ℕ) : Part ℕ := Nat.rfind (fun s => (new_element e s == some n))
+
+lemma enum_stage_spec (s : ℕ) (h : s ∈ enum_stage e n) : new_element e s == some n := by
+  have h1 := rfind_spec h
+  simp_all only [Part.coe_some, Part.mem_some_iff, Bool.true_eq, beq_iff_eq, BEq.rfl]
+
+lemma enum_stage_min (s t : ℕ) (h : s ∈ enum_stage e n) (ht : t < s) :
+    ¬ (new_element e t == some n) := by
+  simp_all only [enum_stage, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, beq_iff_eq,
+    Bool.false_eq, beq_eq_false_iff_ne, ne_eq, not_false_eq_true]
 
 /- If n ∈ W_e, then its enumeration stage exists. -/
 lemma enum_stage_exists (e n : ℕ) (h : n ∈ W e) : (enum_stage e n).Dom := by
   simp [enum_stage]
-  apply mem_W_phi.mp at h
+  apply mem_W_ϕ.mp at h
   apply (enter_queue_mem e n).mpr at h
   have h1 : ∃ s k, List.idxOf? n (enter_queue e s) = some k := by
     obtain ⟨s, h⟩ := h
@@ -426,8 +404,7 @@ lemma enum_stage_exists (e n : ℕ) (h : n ∈ W e) : (enum_stage e n).Dom := by
   use s+k
 
 /- If n is in a queue, it is eventually enumerated -/
-lemma enter_queue_enum (h : n ∈ (enter_queue e s)) :
-    ∃ t, new_element e t = n := by
+lemma enter_queue_enum (h : n ∈ (enter_queue e s)) : ∃ t, new_element e t = n := by
   have ⟨k, h1⟩ : ∃ k, List.idxOf? n (enter_queue e s) = some k :=
     Option.isSome_iff_exists.mp (isSome_idxOf?.mpr h)
   apply enter_queue_enum_exact at h1
@@ -437,35 +414,39 @@ lemma enter_queue_enum (h : n ∈ (enter_queue e s)) :
 lemma enter_queue_exit_exact (h : List.idxOf? n (enter_queue e s) = some k) :
     ∀ t, n ∉ enter_queue e (s + k + t + 1) := by
   intro t
-  have h1 := idxOf?_mem (id (Eq.symm h))
-  have h2 := enter_queue_enum_exact h
-  have ⟨r, ⟨h3, _⟩⟩ := runtime_is_min' (enter_queue_halts h1)
-  rw [← PhiNew_runtime_iff] at h3
+  have h1 := enter_queue_halts (idxOf?_mem (id (Eq.symm h)))
+  have ⟨r, h2⟩ := ϕ_halts_runtime_exists.mp (ϕ_complete.mpr
+    (Exists.intro s h1))
+  apply (ϕNew_runtime_iff e n r).mpr at h2
+  have h3 : r ≤ s := by
+    simp only [ϕNew_runtime_iff] at h2
+    apply runtime_min at h2
+    contrapose h2
+    push_neg
+    apply not_le.mp at h2
+    use s
+  have h4 : ∀ i, Disjoint (ϕNew e r) (ϕNew e (s+k+1+i)) := by
+    intro i
+    refine Disjoint.symm (ϕNew_disjoint_gt ?_)
+    linarith
+  simp [Finset.disjoint_left] at h4
   induction t with | zero | succ t ih
   <;> nth_rw 1 [enter_queue]
   <;> simp only [mem_append, not_or]
   · constructor
     · cases hL : enter_queue e (s+k) with | nil | cons a T
       · simp_all
-      · have h4 := enter_queue_nodup e (s+k)
-        have h5 := enter_queue_enum_exact h
-        unfold new_element at h5
-        simp_all
-    · have h4 : Disjoint (PhiNew e r) (PhiNew e (s+k+1)) := by
-        refine Disjoint.symm (PhiNew_disjoint_gt e ?_)
-        linarith
-      rw [Finset.disjoint_left] at h4
-      rw [PhiNewList_mem]
-      exact h4 h3
+      · have h5 := enter_queue_nodup e (s+k)
+        have h6 := enter_queue_enum_exact h
+        unfold new_element at h6
+        simp_all only [nodup_cons, head?_cons, Option.some.injEq, tail_cons, not_false_eq_true]
+    · simp only [Finset.mem_sort]
+      exact h4 0 h2
   · constructor
     · contrapose ih
       exact mem_of_mem_tail ih
-    · have h4 : Disjoint (PhiNew e r) (PhiNew e (s+k+t+2)) := by
-        refine Disjoint.symm (PhiNew_disjoint_gt e ?_)
-        linarith
-      rw [Finset.disjoint_left] at h4
-      rw [PhiNewList_mem]
-      exact h4 h3
+    · apply (h4 (t+1)) at h2
+      simp_all [Nat.add_right_comm (s + k) 1 (t + 1)]
 
 /- If n is in a queue, eventually it is never in a queue again -/
 lemma enter_queue_exit (h : n ∈ (enter_queue e s)) :
@@ -482,7 +463,33 @@ lemma enter_queue_exit (h : n ∈ (enter_queue e s)) :
   have ht4 : s + k + 1 + l = s + k + l + 1 := by linarith
   simp_all
 
-lemma Phi_halts_Wenum (e n : ℕ) : Phi_halts e n ↔ ∃ s, n = Wenum e s := by
+/- The sequence of enumerated elements -/
+def Wenum (e : ℕ) : Stream' (Option ℕ) := new_element e
+
+instance Wenum_dec (e : ℕ) : DecidablePred (fun k => ∃ s, Wenum e k = some s) := by
+  simp [DecidablePred, Wenum, new_element]
+  intro n
+  have h (L : List ℕ) : (∃ s, L.head? = some s) ↔ (L ≠ []) := by
+    constructor
+    <;> intro h
+    · have ⟨s, h⟩ := h
+      refine List.ne_nil_of_length_pos (List.length_pos_iff_exists_mem.mpr ?_)
+      exact ⟨s, List.mem_of_mem_head? h⟩
+    · contrapose h
+      push_neg at h
+      exact List.head?_eq_none_iff.mp (Option.eq_none_iff_forall_ne_some.mpr h)
+  simp only [h (enter_queue e n), ne_eq]
+  push_neg
+  exact instDecidableNot
+
+instance Wenum_comp : Computable (Wenum e)  := by
+  unfold Wenum new_element
+  refine Computable.comp (Primrec.to_comp Primrec.list_head?) ?_
+  sorry
+  --change Computable fun s : ℕ => Nat.rec ([] : List ℕ)
+  --    (fun t q => q.tail ++ (ϕNew e (t + 1)).sort) s
+
+lemma ϕ_halts_Wenum (e n : ℕ) : ϕ_halts e n ↔ ∃ s, n = Wenum e s := by
   rw [← enter_queue_mem]
   unfold Wenum
   constructor
@@ -498,28 +505,26 @@ lemma Phi_halts_Wenum (e n : ℕ) : Phi_halts e n ↔ ∃ s, n = Wenum e s := by
 theorem We_mem_TFAE (e n : ℕ) :
     [n ∈ W e,                  --1
      ∃ s, n ∈ W_s e s,         --2
-     Phi_halts e n,            --3
+     ϕ_halts e n,            --3
      ∃ s, n = Wenum e s,       --4
-     ∃ s, Phi_s_halts e s n,   --5
-     ∃ x, ∃ s, x ∈ Phi_s e s n --6
+     ∃ s, ϕ_s_halts e s n,   --5
     ].TFAE := by
   tfae_have 1 ↔ 2 := W_mem_iff_W_s
-  tfae_have 3 ↔ 4 := Phi_halts_Wenum e n
+  tfae_have 3 ↔ 4 := ϕ_halts_Wenum e n
   tfae_have 2 ↔ 5 := by
     apply exists_congr
     intro a
-    exact W_s_Phi_s
-  tfae_have 3 ↔ 5 := phi_halts_stage_exists
-  tfae_have 5 ↔ 6 := exists_comm
+    exact W_s_ϕ_s
+  tfae_have 3 ↔ 5 := ϕ_complete
   tfae_finish
 
 /-- TODO: prove a constructive version, then generalize to exists? -/
-/- If PhiNew stabilizes, then eventually the queue depletes.
+/- If ϕNew stabilizes, then eventually the queue depletes.
 Indeed iff is true, see TFAE below. -/
 
 lemma queue_depletes (h : (W e).Finite) :
-    ∃ t, ∀ s > t, enter_queue e s = [] := by
-  rw [We_finite_iff_PhiNew_stabilizes] at h
+    ∃ t, ∀ s ≥ t, enter_queue e s = [] := by
+  rw [We_finite_iff_ϕNew_stabilizes] at h
   obtain ⟨t, h⟩ := h -- unfortunately the queue at stage t may not be empty
   use t+(enter_queue e t).length
   intro s _
@@ -533,46 +538,56 @@ lemma queue_depletes (h : (W e).Finite) :
       linarith
     grind
   have hs : s ≥ t := by linarith
-  have hs1 := IsSuffix.subset (enter_queue_PhiNewList e hs)
-  have hi : ∀ i, PhiNew e (t+i+1) = ∅ := by grind
-  have hi1 : ∀ i, PhiNewList e (t+i+1) = [] := by
+  have hs1 := enter_queue_ϕNewList e hs
+  have hi1 : ∀ i, ϕNewList e (t+i+1) = [] := by
     intro i
     rw [← toFinset_eq_empty_iff]
-    exact hi i
+    unfold ϕNewList
+    simp
+    grind
   simp_all only [gt_iff_lt, ge_iff_le, map_const', length_range, flatten_replicate_nil, append_nil]
   rw [← toFinset_eq_empty_iff]
   ext x
   simp only [mem_toFinset, Finset.notMem_empty, iff_false]
   grind
 
-lemma Wenum_finite_iff (e : ℕ) : (W e).Finite ↔ ∃ s, ∀ t > s, Wenum e t = Option.none := by
+/-- TODO: the deepest case of this proof is truly horrible, and reused below. Extract! Fix!-/
+lemma Wenum_finite_iff (e : ℕ) : (W e).Finite ↔ ∃ s, ∀ t ≥ s, Wenum e t = Option.none := by
   constructor
   · intro h
     have ⟨s, h1⟩ := queue_depletes h
     use s
     intro t ht
-    simp_all only [Wenum, new_element, head?_eq_none_iff, gt_iff_lt]
-  · rw [We_finite_iff_PhiNew_stabilizes]
+    simp_all only [Wenum, new_element, head?_eq_none_iff]
+  · rw [We_finite_iff_ϕNew_stabilizes]
     intro ⟨t, h⟩
     use t
     intro s h1
-    simp only [gt_iff_lt, Wenum, new_element, head?_eq_none_iff] at h
-    have h2 : enter_queue e s = [] := by simp_all
-    unfold enter_queue at h2
+    simp only [Wenum, new_element, head?_eq_none_iff] at h
+    have h2 : enter_queue e s = [] := by
+      apply h
+      exact le_of_succ_le h1
     cases s with | zero | succ s
     · tauto
-    · simp only [append_eq_nil_iff] at h2
-      ext x
-      simp [← PhiNewList_mem, h2]
+    · unfold enter_queue at h2
+      simp only [append_eq_nil_iff] at h2
+      obtain ⟨h2, h3⟩ := h2
+      apply Finset.eq_empty_iff_forall_notMem.mpr
+      intro a ha
+      have : a ∈ (ϕNew e (s + 1)).sort (fun a b ↦ a ≤ b) := by
+        exact (Finset.mem_sort fun a b ↦ a ≤ b).mpr ha
+      contrapose h3
+      exact ne_nil_of_mem this
 
-lemma Wenum_infinite_iff (e : ℕ) : (W e).Infinite ↔ ∀ s, ∃ t > s, ∃ n, Wenum e t = some n := by
+
+lemma Wenum_infinite_iff (e : ℕ) : (W e).Infinite ↔ ∀ s, ∃ t ≥ s, ∃ n, Wenum e t = some n := by
   have h := Wenum_finite_iff e
   have h1 : ¬ (W e).Finite ↔ (W e).Infinite := Iff.symm (Eq.to_iff rfl)
   simp_all [Option.ne_none_iff_exists']
 
 -- the following are here just to prove the TFAE statement
-lemma queue_depletes_implies_PhiNew_stabilizes (h : ∃ t, ∀ s > t, enter_queue e s = []) :
-    ∃ t, ∀ s > t, PhiNew e s = ∅ := by
+lemma queue_depletes_implies_ϕNew_stabilizes (h : ∃ t, ∀ s ≥ t, enter_queue e s = []) :
+    ∃ t, ∀ s ≥ t, ϕNew e s = ∅ := by
   obtain ⟨t, h⟩ := h
   use t
   intro s hts
@@ -580,13 +595,20 @@ lemma queue_depletes_implies_PhiNew_stabilizes (h : ∃ t, ∀ s > t, enter_queu
   by_cases hs : s = 0
   · simp [hs]
     rfl
-  · obtain ⟨k, hs1⟩ := exists_eq_succ_of_ne_zero hs
-    rw [hs1] at h1
-    unfold enter_queue at h1
-    apply List.append_eq_nil_iff.mp at h1
-    simp [PhiNew, h1, hs1]
+  · cases s with | zero | succ s
+    · tauto
+    · unfold enter_queue at h1
+      simp only [append_eq_nil_iff] at h1
+      obtain ⟨h2, h3⟩ := h1
+      apply Finset.eq_empty_iff_forall_notMem.mpr
+      intro a ha
+      have : a ∈ (ϕNew e (s + 1)).sort (fun a b ↦ a ≤ b) := by
+        exact (Finset.mem_sort fun a b ↦ a ≤ b).mpr ha
+      contrapose h3
+      exact ne_nil_of_mem this
 
-lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s > t, W_s e s = W_s e t) :
+
+lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s ≥ t, W_s e s = W_s e t) :
     ∃ t, W e = W_s e t := by
   obtain ⟨t, h⟩ := h
   use t
@@ -605,34 +627,33 @@ lemma We_finite_iff_We_eq_Ws (h : ∃ t, W e = W_s e t) : (W e).Finite := by
   rw [h]
   exact Finset.finite_toSet (W_s e t)
 
-lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s > t, PhiNew e s = ∅) :
-    ∃ t, ∀ s > t, W_s e s = W_s e t := by
+lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s ≥ t, ϕNew e s = ∅) :
+    ∃ t, ∀ s ≥ t, W_s e s = W_s e t := by
   obtain ⟨t, h⟩ := h
   use t
   intro s
-  have h1 : ∀ s > t, W_s e s = W_s e (s-1) := by
+  have h1 : ∀ s ≥ t, W_s e s = W_s e (s-1) := by
     intro s h1
     induction s with | zero | succ s ih
     · tauto
     · simp
       apply h at h1
-      rw [PhiNew_eq_Ws_diff] at h1
+      rw [ϕNew_eq_Ws_diff] at h1
       simp at h1
       exact subset_antisymm h1 (W_s_mono (Nat.le_add_right s 1))
   induction s with | zero | succ s ih
-  · tauto
-  · grind
+  <;> grind
 
 theorem We_finite_TFAE (e : ℕ) :
     [(W e).Finite,                          --1
-      ∃ t, ∀ s > t, PhiNew e s = ∅,         --2
-      ∃ t, ∀ s > t, W_s e s = W_s e t,      --3
+      ∃ t, ∀ s ≥ t, ϕNew e s = ∅,         --2
+      ∃ t, ∀ s ≥ t, W_s e s = W_s e t,      --3
       ∃ t, W e = W_s e t,                   --4
-      ∃ t, ∀ s > t, enter_queue e s = [],   --5
-      ∃ t, ∀ s > t, Wenum e s = Option.none --6
+      ∃ t, ∀ s ≥ t, enter_queue e s = [],   --5
+      ∃ t, ∀ s ≥ t, Wenum e s = Option.none --6
     ].TFAE := by
   tfae_have 1 → 5 := queue_depletes
-  tfae_have 5 → 2 := queue_depletes_implies_PhiNew_stabilizes
+  tfae_have 5 → 2 := queue_depletes_implies_ϕNew_stabilizes
   tfae_have 2 → 3 := WsNew_stabilizes_Ws_stabilizes e
   tfae_have 3 → 4 := Ws_stabilizes_implies_We_eq_Ws
   tfae_have 4 → 1 := We_finite_iff_We_eq_Ws
@@ -641,14 +662,14 @@ theorem We_finite_TFAE (e : ℕ) :
 
 theorem We_infinite_TFAE (e : ℕ) :
     [(W e).Infinite,                         --1
-      ∀ t, ∃ s > t, PhiNew e s ≠ ∅,        --2
-      ∀ t, ∃ s > t, W_s e s ≠ W_s e t,       --3
+      ∀ t, ∃ s ≥ t, ϕNew e s ≠ ∅,        --2
+      ∀ t, ∃ s ≥ t, W_s e s ≠ W_s e t,       --3
       ∀ t, W e ≠ W_s e t,                    --4
-      ∀ t, ∃ s > t, enter_queue e s ≠ [],   --5
-      ∀ t, ∃ s > t, Wenum e s ≠ Option.none  --6
+      ∀ t, ∃ s ≥ t, enter_queue e s ≠ [],   --5
+      ∀ t, ∃ s ≥ t, ∃ n, Wenum e s = some n  --6
     ].TFAE := by
     have h := tfae_not_iff.mpr (We_finite_TFAE e)
     simp only [map] at h
     push_neg at h
-    simp only [Finset.nonempty_iff_ne_empty] at h
+    simp only [Finset.nonempty_iff_ne_empty, Option.ne_none_iff_exists'] at h
     exact h

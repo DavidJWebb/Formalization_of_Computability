@@ -131,10 +131,8 @@ theorem List.idxOf?_append {l₁ l₂ : List α} :
 
 
 theorem idxOf?_length {α} [DecidableEq α] {a : α} {n : ℕ} {L : List α}
-    (h : some n = idxOf? a L) : n < L.length :=
+    (h : some n = idxOf? a L) : n < L.length := by
   sorry
-  --isSome_getElem? (Option.isSome_of_mem (idxOf?_getElem? h))
-
 
 
 
