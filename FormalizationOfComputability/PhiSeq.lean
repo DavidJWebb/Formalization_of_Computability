@@ -23,7 +23,7 @@ open List --hiding isSome_getElem?
 
 /- The elements whose computations first halt at stage s. By definition,
 these elements are less than s. -/
-def ϕNew (e s : ℕ) : List ℕ := (W_s e s).filter (λ n ↦ ϕ_s e (s-1) n = Option.none)
+def ϕNew (e s : ℕ) : Finset ℕ := (W_s e s).filter (λ n ↦ ϕ_s e (s-1) n = Option.none)
 
 instance ϕNew_dec (e s n : ℕ) : Decidable (n ∈ ϕNew e s) := by
   exact instDecidableMemOfLawfulBEq n (ϕNew e s)
@@ -39,17 +39,14 @@ lemma ϕNew_mem : x ∈ ϕNew e s ↔ (x < s ∧ ϕ_s_halts e s x ∧ ¬ϕ_s_hal
 
 /- The elements newly halting at stage s are exactly W_{e, s} \ W_{e, s-1} -/
 @[grind =]
-lemma ϕNew_eq_Ws_diff : (ϕNew e s).toFinset = (W_s e s).toFinset \ (W_s e (s-1)).toFinset := by
-  simp [ϕNew]
+lemma ϕNew_eq_Ws_diff : (ϕNew e s) = (W_s e s) \ (W_s e (s-1)) := by
   apply subset_antisymm
   · intro x
-    simp_all [ϕ_s_halts]
+    simp_all [ϕNew]
   · intro x
-    simp only [Finset.mem_sdiff, Finset.mem_filter, and_imp]
-    intro h1 h2
-    constructor
-    · exact h1
-    · simp_all
+    simp_all only [ϕNew]
+    intro h
+    simp only [Finset.mem_filter]
 
 
 
