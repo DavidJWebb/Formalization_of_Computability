@@ -88,7 +88,6 @@ def ϕ_s (e s n : ℕ) : Option ℕ :=
 def ϕ (e : ℕ) : ℕ →. ℕ := eval (ofNatCode e)
 
 /- ϕₑ,ₛ(n)↓ iff it has an output -/
-@[grind, simp]
 def ϕ_s_halts (e s n : ℕ) : Prop := (ϕ_s e s n).isSome
 
 /- ϕₑ(n)↓ iff it has an output -/
@@ -270,11 +269,10 @@ def runtime (e n : ℕ) : Part ℕ := rfind (fun s => (ϕ_s e s n).isSome)
 /- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
 @[simp]
 lemma runtime_spec (r : ℕ) (h : r ∈ runtime e n) : ϕ_s_halts e r n := by
-  simp_all only [runtime, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, Bool.false_eq,
-  Option.isSome_eq_false_iff, Option.isNone_iff_eq_none, ϕ_s_halts]
+  simp_all [ϕ_s_halts]
 
 lemma runtime_min (r : ℕ) (h : r ∈ (runtime e n)) : ∀ t, t < r → ¬ ϕ_s_halts e t n := by
-  simp_all
+  simp_all [ϕ_s_halts]
 
 /- ϕₑ(n)↓ iff there is a *least* stage s at which ϕₑ,ₛ(n)↓ -/
 @[grind =, simp]
@@ -297,10 +295,11 @@ lemma ϕ_halts_runtime_exists : ϕ_halts e n ↔ ∃ r, r ∈ runtime e n := by
 /- Wₑ,ₛ = the domain of ϕₑ,ₛ, i.e. elements entering before stage s.
 As all inputs n ≥ s do not halt, this set is necessarily finite. -/
 
-def W_s_list (e s : ℕ): List ℕ := (List.range s).filter (ϕ_s_halts e s)
+def W_s (e s : ℕ): List ℕ := (List.range s).filter (ϕ_s_halts e s)
 
-lemma W_s_list_primrec (e : ℕ) : Primrec fun (s : ℕ) => W_s_list e s := by
-  unfold W_s_list
+/- The Wₑ,ₛ are primitive recursive-/
+lemma W_s_primrec (e : ℕ) : Primrec fun (s : ℕ) => W_s e s := by
+  unfold W_s
   have hrel : PrimrecRel (fun n s : ℕ => ϕ_s_halts e s n) :=
     ϕ_s_halts_primrecRel e
   exact
@@ -308,29 +307,15 @@ lemma W_s_list_primrec (e : ℕ) : Primrec fun (s : ℕ) => W_s_list e s := by
       Primrec.list_range
       Primrec.id)
 
-def W_s (e s : ℕ) : Finset ℕ := (W_s_list e s).toFinset
-
-lemma W_s_primrec (e : ℕ) : Primrec fun (s : ℕ) ↦ W_s e s := by
-  unfold W_s
-  refine Primrec.comp ?_ (W_s_list_primrec e)
-  unfold List.toFinset
-  refine Primrec.comp ?_ ?_
-  ·
-  ·
-
 @[grind =, simp]
 lemma W_s_mem (e s n : ℕ) : n ∈ W_s e s ↔ n < s ∧ ϕ_s_halts e s n := by
-  unfold W_s W_s_list
-  simp
+  simp [W_s]
 
 /- Wₑ = {n | ϕₑ(n)↓} -/
 @[grind, simp]
 def W (e : ℕ) : Set ℕ := (ϕ e).Dom
 
 -- instance W_s_dec (e s n : ℕ) : Decidable (n ∈ W_s e s) := by apply Finset.decidableMem
-
-/- The Wₑ,ₛ are primitive recursive-/
-lemma W_s_Primrec : Primrec.set (W_s e s) := finite (Finset.finite_toSet (W_s e s))
 
 /- The Wₑ are Σ01 -/
 lemma W_Sigma01 (e : ℕ) : Sigma01 (W e) := by
@@ -369,7 +354,7 @@ lemma W_s_ϕ_s : n ∈ W_s e s ↔ ϕ_s_halts e s n := by
 lemma Ws_gt_zero : n ∈ W_s e s → s > 0 := by grind
 
 @[simp]
-lemma Ws_zero_empty : W_s e 0 = ∅ := by grind
+lemma Ws_zero_empty : W_s e 0 = ∅ := by simp [W_s]
 
 /- ϕₑ(x)↓ ↔ x ∈ Wₑ -/
 @[simp]
@@ -393,20 +378,19 @@ lemma Ws_runtime (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n ∧ n ∈ W_s e 
 
 /- Wₑ,ₛ ⊆ Wₑ  -/
 @[grind! ., simp]
-lemma W_s_subset_W : ↑(W_s e s) ⊆ W e := by
+lemma W_s_subset_W : ↑(W_s e s).toFinset ⊆ W e := by
   intro x h
-  exact ϕ_sound (W_s_ϕ_s.mp h)
+  simp [W_s] at h
+  refine mem_W_ϕ.mpr (ϕ_complete.mpr ?_)
+  use s
+  simp [h.right]
 
 /- Wₑ = ⋃ₛ Wₑ,ₛ -/
 @[grind =, simp]
 lemma W_mem_iff_W_s : n ∈ W e ↔ ∃ s, n ∈ W_s e s := by
-  constructor
-  · intro h
-    simp only [W_s_ϕ_s]
-    exact ϕ_complete.mp (mem_W_ϕ.mp h)
-  · grind
+  simp only [W_s_ϕ_s, ϕ_complete, mem_W_ϕ]
 
-lemma W_eq_union_W_s : W e = ⋃ (s : ℕ), W_s e s := by
+lemma W_eq_union_W_s : W e = ⋃ (s : ℕ), (W_s e s).toFinset := by
   ext x
   rw [W_mem_iff_W_s]
   simp

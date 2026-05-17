@@ -23,34 +23,39 @@ open List --hiding isSome_getElem?
 
 /- The elements whose computations first halt at stage s. By definition,
 these elements are less than s. -/
-def ϕNew (e s : ℕ) : Finset ℕ := (W_s e s).filter (λ n ↦ ϕ_s e (s-1) n = Option.none)
+def ϕNew (e s : ℕ) : List ℕ := (W_s e s).filter (λ n ↦ ϕ_s e (s-1) n = Option.none)
 
-instance ϕNew_dec (e s n : ℕ) : Decidable (n ∈ ϕNew e s) := by apply Finset.decidableMem
+instance ϕNew_dec (e s n : ℕ) : Decidable (n ∈ ϕNew e s) := by
+  exact instDecidableMemOfLawfulBEq n (ϕNew e s)
 
 lemma ϕNew_zero (e : ℕ) : ϕNew e 0 = ∅ := by simp [ϕNew]
 
 variable {e s t n x y i k l : ℕ}
 
 /- This lemma cleans up lines that would otherwise be a rather lengthy simp only -/
-lemma ϕNew_mem_lemma :
-    x ∈ ϕNew e s ↔ (x < s ∧ ϕ_s_halts e s x ∧ ¬ϕ_s_halts e (s - 1) x) := by
-  simp [ϕNew]
+lemma ϕNew_mem : x ∈ ϕNew e s ↔ (x < s ∧ ϕ_s_halts e s x ∧ ¬ϕ_s_halts e (s - 1) x) := by
+  simp [ϕNew, ϕ_s_halts]
   exact and_assoc
 
 /- The elements newly halting at stage s are exactly W_{e, s} \ W_{e, s-1} -/
 @[grind =]
-lemma ϕNew_eq_Ws_diff : (ϕNew e s) = (W_s e s) \ (W_s e (s-1)) := by
-  unfold ϕNew
+lemma ϕNew_eq_Ws_diff : (ϕNew e s).toFinset = (W_s e s).toFinset \ (W_s e (s-1)).toFinset := by
+  simp [ϕNew]
   apply subset_antisymm
   · intro x
-    simp_all
+    simp_all [ϕ_s_halts]
   · intro x
     simp only [Finset.mem_sdiff, Finset.mem_filter, and_imp]
     intro h1 h2
     constructor
     · exact h1
-    · rw [W_s_ϕ_s] at h2
-      simp_all
+    · simp_all
+
+
+
+
+
+
 
 /- Elements never enter twice - the ϕNew are disjoint -/
 lemma ϕNew_disjoint_gt (h : s > t) : Disjoint (ϕNew e s) (ϕNew e t) := by
@@ -234,7 +239,7 @@ lemma enter_queue_halts (h : n ∈ enter_queue e s) : ϕ_s_halts e s n := by
     · apply List.mem_of_mem_tail at h
       apply ih at h
       exact ϕ_halts_mono (Nat.le_add_right s 1) h
-    · simp_all only [ϕ_s_halts, Finset.mem_sort, ϕNew_mem_lemma, add_tsub_cancel_right,
+    · simp_all only [ϕ_s_halts, Finset.mem_sort, ϕNew_mem, add_tsub_cancel_right,
       Bool.not_eq_true, Option.isSome_eq_false_iff, Option.isNone_iff_eq_none]
 
 /- Elements of the queue are exactly the elements that halt -/
