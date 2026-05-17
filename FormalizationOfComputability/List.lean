@@ -35,7 +35,6 @@ theorem idxOf?_getElem?_iff (h : ∀ i < n, L[i]? ≠ a) : n = List.idxOf? a L �
       · intro j hjn
         simp only [beq_eq_false_iff_ne, ne_eq]
         apply h at hjn
-        push_neg
         by_contra h5
         rw [← h5] at hjn
         revert hjn

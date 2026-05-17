@@ -62,22 +62,15 @@ lemma encode_ofNatCode : ∀ n, encodeCode (ofNatCode n) = n
     let m := n.div2.div2
     have hm : m < n + 4 := by
       simp only [m, div2_val]
-      exact
-        lt_of_le_of_lt (le_trans (div_le_self _ _) (div_le_self _ _))
-          (succ_le_succ (le_add_right _ _))
+      omega
     have _m1 : m.unpair.1 < n + 4 := lt_of_le_of_lt m.unpair_left_le hm
     have _m2 : m.unpair.2 < n + 4 := lt_of_le_of_lt m.unpair_right_le hm
-    have IH := encode_ofNatCode m
-    have IH1 := encode_ofNatCode m.unpair.1
-    have IH2 := encode_ofNatCode m.unpair.2
     conv_rhs => rw [← bit_bodd_div2 n, ← bit_bodd_div2 n.div2]
     simp only [ofNatCode.eq_5]
-    cases n.bodd <;> cases n.div2.bodd <;>
-      simp [m, encodeCode, IH, IH1, IH2, bit_val]
-
-private lemma helperlemma (x : ℕ) : Option.none = some x → False := by
-    intro h
-    simp_all only [reduceCtorEq]
+    cases n.bodd
+    <;> cases n.div2.bodd
+    <;> simp [m, encodeCode, (encode_ofNatCode m), encode_ofNatCode m.unpair.1,
+        encode_ofNatCode m.unpair.2, bit_val]
 
 variable {e s t n x y : ℕ} {X : Set ℕ}
 
@@ -235,7 +228,7 @@ def runtime (e n : ℕ) : Part ℕ := rfind (fun s => (ϕ_s e s n).isSome)
 @[simp]
 lemma runtime_spec (r : ℕ) (h : r ∈ runtime e n) : ϕ_s_halts e r n := by
   simp_all only [runtime, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, Bool.false_eq,
-  Option.isSome_eq_false_iff, Option.isNone_iff_eq_none, ϕ_s_halts]
+    Option.isSome_eq_false_iff, Option.isNone_iff_eq_none, ϕ_s_halts]
 
 lemma runtime_min (r : ℕ) (h : r ∈ (runtime e n)) : ∀ t, t < r → ¬ ϕ_s_halts e t n := by
   simp_all
@@ -254,9 +247,8 @@ lemma ϕ_halts_runtime_exists : ϕ_halts e n ↔ ∃ r, r ∈ runtime e n := by
       exact hs
     simpa [Part.dom_iff_mem] using h1
   · intro ⟨r, h⟩
-    apply ϕ_complete.mpr
     apply runtime_spec at h
-    exact ⟨r, h⟩
+    exact ϕ_complete.mpr ⟨r, h⟩
 
 /- Wₑ,ₛ = the domain of ϕₑ,ₛ, i.e. elements entering before stage s.
 As all inputs n ≥ s do not halt, this set is necessarily finite. -/
@@ -270,13 +262,21 @@ def W (e : ℕ) : Set ℕ := (ϕ e).Dom
 instance (e s n : ℕ) : Decidable (n ∈ W_s e s) :=
   Finset.decidableMem n (Finset.filter (ϕ_s_halts e s) (Finset.range s))
 
+lemma W_s_primrec (e : ℕ) : Primrec fun (s : ℕ) ↦ W_s e s := by
+  have h0 (s) : PrimrecPred (ϕ_s_halts e s) := ϕ_s_halts_primrec
+  unfold W_s
+  sorry
+
+
+
 /- The Wₑ,ₛ are primitive recursive-/
-lemma W_s_Primrec : Primrec.set (W_s e s) := by
-  simp only [Primrec.set, W_s, Finset.coe_filter, Finset.mem_range, Set.mem_setOf_eq]
-  use ϕ_s_halts e s
-  constructor
-  · exact Primrec.ite (ϕ_s_halts_primrec) (const true) (const false)
-  · grind
+lemma W_s_Primrec' : Primrec.set (W_s e s) := by
+  exact finite (Finset.finite_toSet (W_s e s))
+  -- simp only [Primrec.set, W_s, Finset.coe_filter, Finset.mem_range, Set.mem_setOf_eq]
+  -- use ϕ_s_halts e s
+  -- constructor
+  -- · exact Primrec.ite (ϕ_s_halts_primrec) (const true) (const false)
+  -- · grind
 
 /- The Wₑ are Σ01 -/
 lemma W_Sigma01 (e : ℕ) : Sigma01 (W e) := by
