@@ -422,7 +422,7 @@ lemma enter_queue_exit_exact (h : List.idxOf? n (enter_queue e s) = some k) :
     simp only [ϕNew_runtime_iff] at h2
     apply runtime_min at h2
     contrapose h2
-    push_neg
+    push Not
     apply not_le.mp at h2
     use s
   have h4 : ∀ i, Disjoint (ϕNew e r) (ϕNew e (s+k+1+i)) := by
@@ -476,10 +476,9 @@ instance Wenum_dec (e : ℕ) : DecidablePred (fun k => ∃ s, Wenum e k = some s
       refine List.ne_nil_of_length_pos (List.length_pos_iff_exists_mem.mpr ?_)
       exact ⟨s, List.mem_of_mem_head? h⟩
     · contrapose h
-      push_neg at h
+      push Not at h
       exact List.head?_eq_none_iff.mp (Option.eq_none_iff_forall_ne_some.mpr h)
   simp only [h (enter_queue e n), ne_eq]
-  push_neg
   exact instDecidableNot
 
 instance Wenum_comp : Computable (Wenum e)  := by
@@ -670,6 +669,6 @@ theorem We_infinite_TFAE (e : ℕ) :
     ].TFAE := by
     have h := tfae_not_iff.mpr (We_finite_TFAE e)
     simp only [map] at h
-    push_neg at h
+    push Not at h
     simp only [Finset.nonempty_iff_ne_empty, Option.ne_none_iff_exists'] at h
     exact h
