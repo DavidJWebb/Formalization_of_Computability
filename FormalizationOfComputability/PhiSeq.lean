@@ -48,12 +48,7 @@ lemma ϕNew_eq_Ws_diff : (ϕNew e s) = (W_s e s) \ (W_s e (s-1)) := by
     simp_all only [ϕNew]
     intro h
     simp only [Finset.mem_filter]
-
-
-
-
-
-
+    simp_all
 
 /- Elements never enter twice - the ϕNew are disjoint -/
 lemma ϕNew_disjoint_gt (h : s > t) : Disjoint (ϕNew e s) (ϕNew e t) := by
@@ -99,8 +94,7 @@ lemma ϕNew_runtime_iff (e x r : ℕ) : x ∈ ϕNew e r ↔ r ∈ runtime e x :=
   · by_cases hr : r = 0
     · simp [hr]
     · have h2 : r-1 < r := by exact Nat.sub_one_lt hr
-      apply h1 at h2
-      sorry
+      simp_all
 
 /- W_e can be created as a disjoint union of new elements-/
 lemma We_eq_union_ϕNew (e : ℕ) : W e = ⋃ s, (ϕNew e s) := by
