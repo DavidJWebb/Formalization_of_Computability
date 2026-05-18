@@ -26,7 +26,7 @@ these elements are less than s. -/
 def ϕNew (e s : ℕ) : Finset ℕ := (W_s e s).filter (λ n ↦ ϕ_s e (s-1) n = Option.none)
 
 instance ϕNew_dec (e s n : ℕ) : Decidable (n ∈ ϕNew e s) := by
-  exact instDecidableMemOfLawfulBEq n (ϕNew e s)
+  exact Finset.decidableMem n (ϕNew e s)
 
 lemma ϕNew_zero (e : ℕ) : ϕNew e 0 = ∅ := by simp [ϕNew]
 
@@ -35,7 +35,8 @@ variable {e s t n x y i k l : ℕ}
 /- This lemma cleans up lines that would otherwise be a rather lengthy simp only -/
 lemma ϕNew_mem : x ∈ ϕNew e s ↔ (x < s ∧ ϕ_s_halts e s x ∧ ¬ϕ_s_halts e (s - 1) x) := by
   simp [ϕNew, ϕ_s_halts]
-  exact and_assoc
+  intro h h1
+  exact ϕ_input_bound h
 
 /- The elements newly halting at stage s are exactly W_{e, s} \ W_{e, s-1} -/
 @[grind =]
@@ -47,7 +48,7 @@ lemma ϕNew_eq_Ws_diff : (ϕNew e s) = (W_s e s) \ (W_s e (s-1)) := by
     simp_all only [ϕNew]
     intro h
     simp only [Finset.mem_filter]
-
+    sorry
 
 
 
@@ -99,7 +100,7 @@ lemma ϕNew_runtime_iff (e x r : ℕ) : x ∈ ϕNew e r ↔ r ∈ runtime e x :=
     · simp [hr]
     · have h2 : r-1 < r := by exact Nat.sub_one_lt hr
       apply h1 at h2
-      grind
+      sorry
 
 /- W_e can be created as a disjoint union of new elements-/
 lemma We_eq_union_ϕNew (e : ℕ) : W e = ⋃ s, (ϕNew e s) := by
@@ -224,7 +225,7 @@ instance enter_queue_dec (e s n : ℕ) : Decidable (n ∈ enter_queue e s) := by
 
 instance enter_queue_comp (e : ℕ) : Computable (enter_queue e) := by
   unfold Computable
-
+  sorry
 
 
 /- If n is in the queue at stage s, then ϕ_{e, s}(n)↓ -/
@@ -502,10 +503,7 @@ instance Wenum_dec (e : ℕ) : DecidablePred (fun k => ∃ s, Wenum e k = some s
 
 instance Wenum_comp : Computable (Wenum e)  := by
   unfold Wenum new_element
-  refine Computable.comp (Primrec.to_comp Primrec.list_head?) ?_
-  sorry
-  --change Computable fun s : ℕ => Nat.rec ([] : List ℕ)
-  --    (fun t q => q.tail ++ (ϕNew e (t + 1)).sort) s
+  refine Computable.comp (Primrec.to_comp Primrec.list_head?) (enter_queue_comp e)
 
 lemma ϕ_halts_Wenum (e n : ℕ) : ϕ_halts e n ↔ ∃ s, n = Wenum e s := by
   rw [← enter_queue_mem]
@@ -523,9 +521,9 @@ lemma ϕ_halts_Wenum (e n : ℕ) : ϕ_halts e n ↔ ∃ s, n = Wenum e s := by
 theorem We_mem_TFAE (e n : ℕ) :
     [n ∈ W e,                  --1
      ∃ s, n ∈ W_s e s,         --2
-     ϕ_halts e n,            --3
+     ϕ_halts e n,              --3
      ∃ s, n = Wenum e s,       --4
-     ∃ s, ϕ_s_halts e s n,   --5
+     ∃ s, ϕ_s_halts e s n,     --5
     ].TFAE := by
   tfae_have 1 ↔ 2 := W_mem_iff_W_s
   tfae_have 3 ↔ 4 := ϕ_halts_Wenum e n
@@ -654,17 +652,17 @@ lemma WsNew_stabilizes_Ws_stabilizes (e : ℕ) (h : ∃ t, ∀ s ≥ t, ϕNew e 
     intro s h1
     induction s with | zero | succ s ih
     · tauto
-    · simp
+    · simp only [add_tsub_cancel_right]
       apply h at h1
       rw [ϕNew_eq_Ws_diff] at h1
-      simp at h1
+      simp only [add_tsub_cancel_right, Finset.sdiff_eq_empty_iff_subset] at h1
       exact subset_antisymm h1 (W_s_mono (Nat.le_add_right s 1))
   induction s with | zero | succ s ih
   <;> grind
 
 theorem We_finite_TFAE (e : ℕ) :
     [(W e).Finite,                          --1
-      ∃ t, ∀ s ≥ t, ϕNew e s = ∅,         --2
+      ∃ t, ∀ s ≥ t, ϕNew e s = ∅,           --2
       ∃ t, ∀ s ≥ t, W_s e s = W_s e t,      --3
       ∃ t, W e = W_s e t,                   --4
       ∃ t, ∀ s ≥ t, enter_queue e s = [],   --5

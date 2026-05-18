@@ -4,7 +4,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
 import FormalizationOfComputability.PhiSeq
+import FormalizationOfComputability.ComputableSearch
 import Mathlib.Order.Interval.Finset.Nat
+import Mathlib.Computability.Primrec.List
 
 namespace Computability
 
@@ -189,20 +191,27 @@ lemma Wenum'_mem (e n : ℕ) (h : (W e).Infinite) :
   unfold Wenum'
   simp_all only [dropNoneIff (Wenum e) (Wenum_aux e h)]
 
-lemma computable_Wenum' (e : ℕ) (h : (W e).Infinite) :
-    Computable fun x ↦ Wenum' e h x := by
-  change Computable fun x ↦ dropNone (Wenum e) (Wenum_aux e h) x
+lemma Wenum'_comp (e : ℕ) (h : (W e).Infinite) :
+    Computable (Wenum' e h) := by
+  change Computable fun x => dropNone (Wenum e) (Wenum_aux e h) x
   apply computable_dropNone
-  · sorry
-  · have h1 := Wenum_dec e
+  · exact Wenum_comp
+  · refine ComputablePred.and ?_ ?_
+    · have h2 := PrimrecRel.comp Primrec.nat_le Primrec₂.left Primrec₂.right
+      replace ⟨h2, h3⟩ := h2
+      use h2
+      exact Primrec.to_comp h3
+    · have hnone : ComputablePred fun k => Wenum e k = (none : Option ℕ) := by
+        exact ComputablePred.eq Wenum_comp (Computable.const (none : Option ℕ))
+      have hsome : ComputablePred fun k => ∃ n, Wenum e k = some n := by
+        exact hnone.not.of_eq fun k => by
+          cases hk : Wenum e k <;> simp
+      apply Computable.computablePred
+      refine (ComputablePred.decide hsome).comp Primrec₂.right.to_comp
 
-
-instance Wenum'_dec (e : ℕ) (h : (W e).Infinite) : ComputablePred fun (n, s) ↦ Wenum' e h s = n := by
-  simp
-  unfold ComputablePred
-  have hP := computable_Wenum' e h
-
-
+instance Wenum'_dec (e : ℕ) (h : (W e).Infinite) :
+    ComputablePred fun (s, n) ↦ Wenum' e h s = n :=
+  ComputablePred.eq (Computable.comp (Wenum'_comp e h) .fst) (Primrec.snd.to_comp)
 
 def Pi01 (X : Set ℕ): Prop := Sigma01 Xᶜ
 
@@ -234,7 +243,7 @@ lemma inf_inc_sigma01_is_delta01 (e : ℕ) (h : (W e).Infinite)
   have hmem (x : ℕ) : x ∈ W e ↔ ∃ n, Wenum' e h n = x := by
     rw [← Wenum'_mem]
     grind [(We_mem_TFAE e x).out 0 3]
-  have hx (x : ℕ) : x ∈ W e ↔ (∃ s < x+1, Wenum' e h s = x) := by
+  have hx (x : ℕ) : x ∈ W e ↔ (∃ s < x + 1, Wenum' e h s = x) := by
     constructor
     <;> intro h1
     · obtain ⟨s, h1⟩ := (hmem x).mp h1
@@ -246,9 +255,13 @@ lemma inf_inc_sigma01_is_delta01 (e : ℕ) (h : (W e).Infinite)
       apply (hmem x).mpr
       use s
   refine (Computable.set_iff_ComputablePred (W e)).mpr ?_
-  simp_rw [hx, ← Finset.mem_range, ← Finset.mem_toList]
-  have hR : ComputablePred fun (n, s) ↦ Wenum' e h s = n := Wenum'_dec e h
-
+  simp_rw [hx]
+  have hargs := Primrec.to_comp <| Primrec.list_map
+        (Primrec.comp Primrec.list_range Primrec.succ)
+        (Primrec₂.pair.comp₂ Primrec₂.right Primrec₂.left)
+  have hcomp := Computable.comp
+    (ComputablePred.decide (ComputablePred.exists_mem_list (Wenum'_dec e h))) hargs
+  exact (Computable.computablePred hcomp).of_eq fun n => by simp [List.mem_range]
 
 
 -- Views Of Mount Σ01 :
