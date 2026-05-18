@@ -48,7 +48,7 @@ lemma ϕNew_eq_Ws_diff : (ϕNew e s) = (W_s e s) \ (W_s e (s-1)) := by
     simp_all only [ϕNew]
     intro h
     simp only [Finset.mem_filter]
-    sorry
+
 
 
 
@@ -547,7 +547,7 @@ lemma queue_depletes (h : (W e).Finite) :
   have hx : ∀ x, x ∈ enter_queue e t → x ∉ enter_queue e s := by
     intro x h
     have ⟨k, hxk⟩ := Option.isSome_iff_exists.mp (isSome_idxOf?.mpr h)
-    have hkl := idxOf?_length hxk.symm
+    have hkl := idxOf?_lt_length_of_mem hxk.symm
     apply enter_queue_exit_exact at hxk
     have ⟨k1, hsk1⟩ : ∃ k1, s = t + k + k1 + 1 := by
       apply Nat.exists_eq_add_of_lt
