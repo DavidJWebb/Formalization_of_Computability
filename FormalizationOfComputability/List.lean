@@ -128,10 +128,19 @@ theorem List.idxOf?_append {l₁ l₂ : List α} :
       intro x h1
       exact ne_of_mem_of_not_mem h1 h
 
-
--- theorem idxOf?_length {α} [DecidableEq α] {a : α} {n : ℕ} {L : List α}
---     (h : some n = idxOf? a L) : n < L.length := by
---   sorry
+theorem idxOf?_lt_length_of_mem {α} [DecidableEq α] {a : α} {n : ℕ} {L : List α} (h : some n = idxOf? a L) :
+    n < L.length := by
+    induction L generalizing n with
+  | nil => simp at h
+  | cons x xs ih =>
+    have h2 : (x :: xs) = [x] ++ xs := by exact Eq.symm singleton_append
+    rw [h2, List.idxOf?_append] at h
+    by_cases h3 : a = x
+    · simp_all
+    · simp [h3] at h
+      replace ⟨m, h⟩ := h
+      simp_all
+      omega
 
 
 
