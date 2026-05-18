@@ -129,32 +129,32 @@ theorem List.idxOf?_append {l₁ l₂ : List α} :
       exact ne_of_mem_of_not_mem h1 h
 
 
-theorem idxOf?_length {α} [DecidableEq α] {a : α} {n : ℕ} {L : List α}
-    (h : some n = idxOf? a L) : n < L.length := by
-  sorry
+-- theorem idxOf?_length {α} [DecidableEq α] {a : α} {n : ℕ} {L : List α}
+--     (h : some n = idxOf? a L) : n < L.length := by
+--   sorry
 
 
 
 
-@[simp]
-theorem List.finIdxOf?_singleton {α : Type} [BEq α] {a b : α} :
-    [a].finIdxOf? b = if a == b then some ⟨0, by simp⟩ else none := by
-  simp [finIdxOf?]
+-- @[simp]
+-- theorem List.finIdxOf?_singleton {α : Type} [BEq α] {a b : α} :
+--     [a].finIdxOf? b = if a == b then some ⟨0, by simp⟩ else none := by
+--   simp [finIdxOf?]
 
-theorem finIdxOf?_eq_pmap_idxOf? {α : Type} [BEq α] {xs : List α} {a : α} :
-    xs.finIdxOf? a =
-      (xs.idxOf? a).pmap
-         (fun i m => by sorry)
-        (fun i h => h) := sorry
+-- theorem finIdxOf?_eq_pmap_idxOf? {α : Type} [BEq α] {xs : List α} {a : α} :
+--     xs.finIdxOf? a =
+--       (xs.idxOf? a).pmap
+--          (fun i m => by sorry)
+--         (fun i h => h) := sorry
 
-@[grind =]
-theorem finIdxOf?_append {α : Type} [BEq α] {xs ys : List α} {a : α} :
-    (xs ++ ys).finIdxOf? a =
-      ((xs.finIdxOf? a).map (Fin.castLE (by simp))).or
-        ((ys.finIdxOf? a).map (Fin.natAdd xs.length) |>.map (Fin.cast (by simp))) := by sorry
-/-   simp only [finIdxOf?_eq_pmap_idxOf?, idxOf?_append, Option.pmap_or]
+-- @[grind =]
+-- theorem finIdxOf?_append {α : Type} [BEq α] {xs ys : List α} {a : α} :
+--     (xs ++ ys).finIdxOf? a =
+--       ((xs.finIdxOf? a).map (Fin.castLE (by simp))).or
+--         ((ys.finIdxOf? a).map (Fin.natAdd xs.length) |>.map (Fin.cast (by simp))) := by sorry
+-- /-   simp only [finIdxOf?_eq_pmap_idxOf?, idxOf?_append, Option.pmap_or]
 
-  split <;> rename_i h _
-  · simp [h, Option.pmap_map, Option.map_pmap, Nat.add_comm]
-  · simp [h]
- -/
+--   split <;> rename_i h _
+--   · simp [h, Option.pmap_map, Option.map_pmap, Nat.add_comm]
+--   · simp [h]
+--  -/
