@@ -6,6 +6,7 @@ Authors: David J. Webb
 import FormalizationOfComputability.Sets
 import Mathlib.Computability.Primrec.List
 import Mathlib.Tactic.Linarith
+
 /-
 # ϕₑ and Wₑ
 This file contains the definitions most commonly used by working computability theorists:
@@ -33,6 +34,7 @@ abbrev Sigma01 := Partrec.set
 open Nat
 open Nat.Partrec
 open Nat.Partrec.Code
+open List
 
 /- Helper lemmas that ofNatCode and encodeCode are inverse functions. The latter
 is present in Partrec.Code, but is marked as a private -/
@@ -296,6 +298,20 @@ lemma Ws_mem : n ∈ Ws e s ↔ ϕs_halts e s n := by
       · exact Or.inl h1
       · exact Or.inr ⟨ϕ_input_bound h, ⟨h, h1⟩⟩
 
+/- Elements cannot be enumerated twice-/
+lemma nodup_Ws (e s : ℕ) : Nodup (Ws e s) := by
+  induction s with | zero | succ s ih
+  · simp [Ws]
+  · simp only [Ws, ϕNew]
+    apply List.Nodup.append ih
+    · apply Nodup.filter
+      exact nodup_range
+    · refine disjoint_left.mpr ?_
+      simp only [Ws_mem, add_tsub_cancel_right, Bool.decide_and, decide_not, mem_filter, mem_range,
+        Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true,
+        decide_eq_false_iff_not, not_and, Decidable.not_not]
+      intro _ haW _ _
+      exact haW
 
 -- @[simp]
 -- lemma Ws_gt_zero : n ∈ Ws e s → s > 0 := by
@@ -307,7 +323,7 @@ lemma Ws_mem : n ∈ Ws e s ↔ ϕs_halts e s n := by
 -- @[simp]
 -- lemma Ws_zero_empty : Ws e 0 = ∅ := by simp [Ws]
 
-/- Monotonicity of W_s -/
+/- Monotonicity of Ws -/
 @[simp]
 lemma Ws_mono (e : ℕ) (h : s ≤ t) : (Ws e s) <+: (Ws e t) := by
   induction t generalizing s with | zero | succ t ih
@@ -318,7 +334,7 @@ lemma Ws_mono (e : ℕ) (h : s ≤ t) : (Ws e s) <+: (Ws e t) := by
       have ht : (Ws e t) <+: (Ws e (t+1)) := by simp [Ws]
       exact List.IsPrefix.trans (ih h) ht
 
-/- Reverse monotonicity of W_s-/
+/- Reverse monotonicity of Ws-/
 @[simp]
 lemma Ws_mono_reverse (h : s ≤ t) (hx : x ∉ Ws e t) : x ∉ Ws e s := by
   contrapose hx
@@ -388,7 +404,7 @@ lemma W_iff_Ws : n ∈ W e ↔ ∃ s, n ∈ Ws e s := by
     simp_all only [Ws_mem, W_mem]
     exact ϕsound h
 
-lemma W_eq_union_W_s : W e = ⋃ (s : ℕ), (Ws e s).toFinset := by
+lemma W_eq_union_Ws : W e = ⋃ (s : ℕ), (Ws e s).toFinset := by
   ext x
   rw [W_iff_Ws]
   simp
