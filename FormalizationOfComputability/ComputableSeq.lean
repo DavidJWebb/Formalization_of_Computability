@@ -5,18 +5,19 @@ Authors: David J. Webb
 -/
 import FormalizationOfComputability.PhiSeq
 import FormalizationOfComputability.ComputableSearch
-import Mathlib.Order.Interval.Finset.Nat
-import Mathlib.Computability.Primrec.List
+
+variable {e : ℕ}
+variable {α}
 
 namespace Computability
 
 /- Given that S is infinitely often some, produce the index of the next some element, starting at s -/
-def seekSomeIndex {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+def seekSomeIndex (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) (s : ℕ) : ℕ :=
     Nat.find (h s)
 
 /- Finding the next some element of an infinite Stream' is computable. -/
-lemma computable_seekSomeIndex {α} [Primcodable α] (S : Stream' (Option α))
+lemma computable_seekSomeIndex [Primcodable α] (S : Stream' (Option α))
   [DecidablePred (fun t ↦ ∃ n, S t = some n)] (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n)
   (hP : ComputablePred fun p : ℕ × ℕ => p.1 ≤ p.2 ∧ ∃ n, S p.2 = some n) :
     Computable fun s ↦ seekSomeIndex S h s := by
@@ -32,23 +33,23 @@ lemma computable_seekSomeIndex {α} [Primcodable α] (S : Stream' (Option α))
     simp [Nat.find_min (h s) hm]
 
 /- Given that S is infinitely often some, produce the next some element, starting at s -/
-def seekSome {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+def seekSome (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) (s : ℕ) : α :=
     (S (Nat.find (h s))).get
   (by exact Option.isSome_iff_exists.mpr ((Nat.find_spec (h s)).2))
 
-lemma seekSome_spec {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+lemma seekSome_spec (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) (s : ℕ) :
     S (seekSomeIndex S h s) = some (seekSome S h s) := by
   simp only [seekSomeIndex, ge_iff_le, seekSome, Option.some_get]
 
 /- The index found by seekSomeIndex is at or after the input index. -/
-lemma seekSomeIndex_gt {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+lemma seekSomeIndex_gt (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) (s : ℕ) :
     seekSomeIndex S h s ≥ s := by
   exact (Nat.find_spec (h s)).1
 
-lemma seekSomeIndex_eq_self {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+lemma seekSomeIndex_eq_self (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) {s : ℕ} {a : α} (hs : S s = some a) :
     seekSomeIndex S h s = s := by
   apply le_antisymm
@@ -56,18 +57,18 @@ lemma seekSomeIndex_eq_self {α} (S : Stream' (Option α)) [DecidablePred (fun t
   · exact seekSomeIndex_gt S h s
 
 -- The index found by seekSomeIndex points to a some value.
-lemma seekSomeIndex_isSome {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+lemma seekSomeIndex_isSome (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) (s : ℕ) :
     ∃ n, S (seekSomeIndex S h s) = some n := by
   exact (Nat.find_spec (h s)).2
 
 /- The indices of the some entries of S. -/
-def dropNoneIndex {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+def dropNoneIndex (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) : ℕ → ℕ
     | 0 => seekSomeIndex S h 0
     | s + 1 => seekSomeIndex S h (dropNoneIndex S h s+1)
 
-lemma computable_dropNoneIndex {α} [Primcodable α] (S : Stream' (Option α))
+lemma computable_dropNoneIndex [Primcodable α] (S : Stream' (Option α))
   [DecidablePred (fun t ↦ ∃ n, S t = some n)] (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n)
   (hP : ComputablePred fun p : ℕ × ℕ => p.1 ≤ p.2 ∧ ∃ n, S p.2 = some n) :
     Computable fun s ↦ dropNoneIndex S h s := by
@@ -92,7 +93,7 @@ lemma computable_dropNoneIndex {α} [Primcodable α] (S : Stream' (Option α))
       simp [dropNoneIndex, seek, ih]
 
 -- The stream obtained from S by deleting all the none entries.
-def dropNone {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+def dropNone (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) : Stream' α :=
     fun s => Option.get (S (dropNoneIndex S h s)) <| by
   apply Option.isSome_iff_exists.mpr
@@ -101,12 +102,12 @@ def dropNone {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t 
   <;> simp [seekSome_spec S h ?_]
 
 /- The value of dropNone at index s agrees with the original stream at index dropNoneIndex S h s. -/
-lemma dropNone_spec {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+lemma dropNone_spec (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) (s : ℕ) :
     S (dropNoneIndex S h s) = some (dropNone S h s) := by
   simp only [dropNone, Option.some_get]
 
-lemma computable_dropNone {α} [Primcodable α] (S : Stream' (Option α))
+lemma computable_dropNone [Primcodable α] (S : Stream' (Option α))
   [DecidablePred (fun t ↦ ∃ n, S t = some n)] (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n)
   (hS : Computable S) (hP : ComputablePred fun p : ℕ × ℕ => p.1 ≤ p.2 ∧ ∃ n, S p.2 = some n) :
     Computable fun s ↦ dropNone S h s := by
@@ -115,24 +116,19 @@ lemma computable_dropNone {α} [Primcodable α] (S : Stream' (Option α))
   simp only [dropNone_spec, Part.coe_some, Part.mem_some_iff]
 
 /- The indices selected by dropNoneIndex strictly increase. -/
-lemma dropNoneIndex_gt {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+lemma dropNoneIndex_gt (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) (s : ℕ) :
     dropNoneIndex S h (s + 1) > dropNoneIndex S h s := by
   change seekSomeIndex S h (dropNoneIndex S h s + 1) > dropNoneIndex S h s
   exact seekSomeIndex_gt S h (dropNoneIndex S h s + 1)
 
-/- lemma dropNoneIndex_zero_pos (S : Stream' (Option ℕ)) [DecidablePred (fun t => ∃ n, S t = some n)]
-    (h : ∀ N, ∃ t > N, ∃ n, S t = some n) :
-    dropNoneIndex S h 0 > 0 := by
-  exact seekSomeIndex_gt S h 0 -/
-
 -- The number of some entries occurring strictly before a given index in the stream.
-def countSomeBefore {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)] : ℕ → ℕ
+def countSomeBefore (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)] : ℕ → ℕ
   | 0 => 0
   | s + 1 => countSomeBefore S s + if ∃ n, S s = some n then 1 else 0
 
 /- The next some after s in S occurs at the (countSomeBefore S s)th element of dropNone S h. -/
-lemma dropNone_countSome {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+lemma dropNone_countSome (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) (s : ℕ) :
     seekSomeIndex S h s = dropNoneIndex S h (countSomeBefore S s) := by
   rw [eq_comm]
@@ -142,7 +138,7 @@ lemma dropNone_countSome {α} (S : Stream' (Option α)) [DecidablePred (fun t =>
   | succ s ih =>
       simp [countSomeBefore]
       by_cases hs : ∃ n, S s = some n
-      · obtain ⟨n, hs⟩ := hs
+      · replace ⟨n, hs⟩ := hs
         simp [hs, dropNoneIndex, ih, seekSomeIndex_eq_self S h hs]
       · simp [hs, ih]
         apply Nat.le_antisymm
@@ -155,14 +151,14 @@ lemma dropNone_countSome {α} (S : Stream' (Option α)) [DecidablePred (fun t =>
           rw [← h1, seekSome_spec S h s]
           simp
 
-lemma dropNone_of_some {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+lemma dropNone_of_some (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) {s : ℕ} {a : α} (hs : S s = some a) :
     dropNone S h (countSomeBefore S s) = S s := by
   rw [← dropNone_spec S h (countSomeBefore S s), ← dropNone_countSome S h s,
     seekSomeIndex_eq_self S h hs]
 
 /- dropNone S enumerates the same elements as S -/
-lemma dropNoneIff {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
+lemma dropNoneIff (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n, S t = some n)]
   (h : ∀ N, ∃ t ≥ N, ∃ n, S t = some n) (a : α) :
     (∃ s, S s = some a) ↔ (∃ t, dropNone S h t = a) := by
   constructor
@@ -174,31 +170,31 @@ lemma dropNoneIff {α} (S : Stream' (Option α)) [DecidablePred (fun t => ∃ n,
     refine ⟨dropNoneIndex S h t, ?_⟩
     rw [dropNone_spec S h t, ht]
 
-lemma Wenum_aux (e : ℕ) (h : (W e).Infinite) : ∀ N, ∃ t ≥ N, ∃ n, (Wenum e) t = some n := by
+lemma Wenum_aux (h : (W e).Infinite) : ∀ N, ∃ t ≥ N, ∃ n, (Wenum e) t = some n := by
   exact ((We_infinite_TFAE e).out 0 5).mp h
 
 /- If Wenum is known to be infinite, Wenum' collects only the emitted elements -/
-def Wenum' (e : ℕ) (h : (W e).Infinite) : Stream' ℕ :=
-  dropNone (Wenum e) (Wenum_aux e h)
+def Wenum' (h : (W e).Infinite) : Stream' ℕ :=
+  dropNone (Wenum e) (Wenum_aux h)
 
 /- The stage at which the nth element of Wenum is enumerated -/
-def enum_stage' (e n : ℕ) (h : (W e).Infinite) : Part ℕ :=
-  dropNoneIndex (Wenum e) (Wenum_aux e h) n
+def enum_stage' (n : ℕ) (h : (W e).Infinite) : Part ℕ :=
+  dropNoneIndex (Wenum e) (Wenum_aux h) n
 
 /- Wenum' enumerates the same elements as Wenum -/
-lemma Wenum'_mem (e n : ℕ) (h : (W e).Infinite) :
-    (∃ s, Wenum e s = some n) ↔ (∃ t, Wenum' e h t = n) := by
+lemma Wenum'_mem (n : ℕ) (h : (W e).Infinite) :
+    (∃ s, Wenum e s = some n) ↔ (∃ t, Wenum' h t = n) := by
   unfold Wenum'
-  simp_all only [dropNoneIff (Wenum e) (Wenum_aux e h)]
+  simp_all only [dropNoneIff (Wenum e) (Wenum_aux h)]
 
+/- If Wenum is known to be infinite, finding its next element is computable. -/
 lemma Wenum'_comp (e : ℕ) (h : (W e).Infinite) :
-    Computable (Wenum' e h) := by
-  change Computable fun x => dropNone (Wenum e) (Wenum_aux e h) x
+    Computable (Wenum' h) := by
+  change Computable fun x => dropNone (Wenum e) (Wenum_aux h) x
   apply computable_dropNone
   · exact Wenum_comp
   · refine ComputablePred.and ?_ ?_
-    · have h2 := PrimrecRel.comp Primrec.nat_le Primrec₂.left Primrec₂.right
-      replace ⟨h2, h3⟩ := h2
+    · have ⟨h2, h3⟩ := PrimrecRel.comp Primrec.nat_le Primrec₂.left Primrec₂.right
       use h2
       exact Primrec.to_comp h3
     · have hnone : ComputablePred fun k => Wenum e k = (none : Option ℕ) := by
@@ -210,7 +206,7 @@ lemma Wenum'_comp (e : ℕ) (h : (W e).Infinite) :
       refine (ComputablePred.decide hsome).comp Primrec₂.right.to_comp
 
 instance Wenum'_dec (e : ℕ) (h : (W e).Infinite) :
-    ComputablePred fun (s, n) ↦ Wenum' e h s = n :=
+    ComputablePred fun (s, n) ↦ Wenum' h s = n :=
   ComputablePred.eq (Computable.comp (Wenum'_comp e h) .fst) (Primrec.snd.to_comp)
 
 def Pi01 (X : Set ℕ): Prop := Sigma01 Xᶜ
@@ -230,25 +226,25 @@ theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧
     simp_all [Partrec.set_iff_REPred]
 
 /- If W e is infinite and increasing, every emitted element is at least its index -/
-lemma inc_ge_index (e : ℕ) (h : (W e).Infinite) (hinc : ∀ m n, m < n → Wenum' e h m < Wenum' e h n) :
-    ∀ s, s ≤ Wenum' e h s := by
+lemma inc_ge_index (h : (W e).Infinite) (hinc : ∀ m n, m < n → Wenum' h m < Wenum' h n) :
+    ∀ s, s ≤ Wenum' h s := by
   intro s
   induction s with | zero | succ s ih
   · exact Nat.zero_le _
   · exact Nat.succ_le_of_lt (lt_of_le_of_lt ih (hinc s (s + 1) (Nat.lt_succ_self s)))
 
-lemma inf_inc_sigma01_is_delta01 (e : ℕ) (h : (W e).Infinite)
-  (hinc : ∀ m n, m < n → Wenum' e h m < Wenum' e h n) :
+lemma inf_inc_sigma01_is_delta01 (h : (W e).Infinite)
+  (hinc : ∀ m n, m < n → Wenum' h m < Wenum' h n) :
     Delta01 (W e) := by
-  have hmem (x : ℕ) : x ∈ W e ↔ ∃ n, Wenum' e h n = x := by
+  have hmem (x : ℕ) : x ∈ W e ↔ ∃ n, Wenum' h n = x := by
     rw [← Wenum'_mem]
     grind [(We_mem_TFAE e x).out 0 3]
-  have hx (x : ℕ) : x ∈ W e ↔ (∃ s < x + 1, Wenum' e h s = x) := by
+  have hx (x : ℕ) : x ∈ W e ↔ (∃ s < x + 1, Wenum' h s = x) := by
     constructor
     <;> intro h1
     · obtain ⟨s, h1⟩ := (hmem x).mp h1
       refine ⟨s, ⟨?_, h1⟩⟩
-      have hs := inc_ge_index e h hinc s
+      have hs := inc_ge_index h hinc s
       rw [h1] at hs
       exact Nat.lt_succ_of_le hs
     · obtain ⟨s, ⟨_, h2⟩⟩ := h1
@@ -271,5 +267,3 @@ lemma inf_inc_sigma01_is_delta01 (e : ℕ) (h : (W e).Infinite)
 -- the code e for f
 -- the (possibly finite) sequence of nth outputs {fn}
 -- the infinite partial recursive sequence of nth outputs {fn}
-
--- #min_imports
