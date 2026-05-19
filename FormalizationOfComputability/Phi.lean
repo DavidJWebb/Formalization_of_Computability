@@ -222,6 +222,12 @@ By definition, these elements are less than s. -/
 def ϕNew (e s : ℕ) : List ℕ := (List.range s).filter
   (λ n ↦ ϕs_halts e s n ∧ ¬ ϕs_halts e (s-1) n)
 
+@[simp]
+lemma ϕNew_mem : n ∈ ϕNew e s ↔ ϕs_halts e s n ∧ ¬ ϕs_halts e (s-1) n := by
+  simp [ϕNew]
+  intro h _
+  exact ϕ_input_bound h
+
 /- The elements in W_e enumerated up to stage s, in the order they appeared. Elements halting
 at the same time are enumerated in asceding order. -/
 def Ws (e : ℕ) : ℕ → List ℕ
