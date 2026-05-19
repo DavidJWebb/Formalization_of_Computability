@@ -250,7 +250,7 @@ lemma ϕNew_mem : n ∈ ϕNew e s ↔ ϕs_halts e s n ∧ ¬ ϕs_halts e (s-1) n
   exact ϕ_input_bound h
 
 /- ϕNew e s contains exactly the elements with runtime s. -/
-lemma ϕNew_runtime_iff (e x r : ℕ) : x ∈ ϕNew e r ↔ r ∈ runtime e x := by
+lemma ϕNew_runtime (e x r : ℕ) : x ∈ ϕNew e r ↔ r ∈ runtime e x := by
   simp [runtime, Part.coe_some, mem_rfind,
     Part.mem_some_iff, Bool.true_eq, Bool.false_eq, Option.isSome_eq_false_iff,
     Option.isNone_iff_eq_none]
