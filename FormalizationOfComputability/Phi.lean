@@ -6,13 +6,14 @@ Authors: David J. Webb
 import FormalizationOfComputability.Sets
 import Mathlib.Computability.Primrec.List
 import Mathlib.Tactic.Linarith
+
 /-
 # ϕₑ and Wₑ
 This file contains the definitions most commonly used by working computability theorists:
 the use functions ϕₑ, the enumerable sets Wₑ, and their computable
 approximations ϕ_{e, s} and W_{e, s}.
 
-In some sense ϕ_s and ϕ are merely wrappers for evaln and eval, respectively,
+In some sense ϕs and ϕ are merely wrappers for evaln and eval, respectively,
 modified to match common computability theory notation.
 
 ## Main results
@@ -33,6 +34,7 @@ abbrev Sigma01 := Partrec.set
 open Nat
 open Nat.Partrec
 open Nat.Partrec.Code
+open List
 
 /- Helper lemmas that ofNatCode and encodeCode are inverse functions. The latter
 is present in Partrec.Code, but is marked as a private -/
@@ -72,12 +74,12 @@ lemma encode_ofNatCode : ∀ n, encodeCode (ofNatCode n) = n
     <;> simp [m, encodeCode, (encode_ofNatCode m), encode_ofNatCode m.unpair.1,
         encode_ofNatCode m.unpair.2, bit_val]
 
-variable {e s t n x y : ℕ} {X : Set ℕ}
+variable {e s t n x y r : ℕ} {X : Set ℕ}
 
 
 /- ϕₑ,ₛ(n), the eth Turing program evaluated for s steps on input n.
 Following Soare, we require the index, input, and output to be less than s -/
-def ϕ_s (e s n : ℕ) : Option ℕ :=
+def ϕs (e s n : ℕ) : Option ℕ :=
     if (e < s) ∧ (∃ y < s, y ∈ evaln s (ofNatCode e) n)
     then evaln s (ofNatCode e) n
     else Option.none
@@ -86,27 +88,25 @@ def ϕ_s (e s n : ℕ) : Option ℕ :=
 def ϕ (e : ℕ) : ℕ →. ℕ := eval (ofNatCode e)
 
 /- ϕₑ,ₛ(n)↓ iff it has an output -/
-@[grind, simp]
-def ϕ_s_halts (e s n : ℕ) : Prop := (ϕ_s e s n).isSome
+def ϕs_halts (e s n : ℕ) : Prop := (ϕs e s n).isSome
 
 /- ϕₑ(n)↓ iff it has an output -/
-@[grind, simp]
 def ϕ_halts (e n : ℕ) : Prop := (ϕ e n).Dom
 
 /- If ϕₑ,ₛ(n)↓, then ϕₑ(n)↓ -/
-lemma ϕ_sound (h : ϕ_s_halts e s n) : ϕ_halts e n := by
-  have h1 : ∃ s, ϕ_s_halts e s n := by exact ⟨s, h⟩
+lemma ϕsound (h : ϕs_halts e s n) : ϕ_halts e n := by
+  have h1 : ∃ s, ϕs_halts e s n := by exact ⟨s, h⟩
   revert h1
-  unfold ϕ_s_halts ϕ_s
+  unfold ϕs_halts ϕs
   unfold ϕ_halts ϕ
   simp only [Part.dom_iff_mem, evaln_complete]
   grind
 
 /- ϕₑ(n)↓ iff there is a stage s at which ϕₑ,ₛ(n)↓ -/
 @[grind =, simp]
-lemma ϕ_complete : ϕ_halts e n ↔ ∃ s, ϕ_s_halts e s n := by
+lemma ϕ_complete : ϕ_halts e n ↔ ∃ s, ϕs_halts e s n := by
   constructor
-  · unfold ϕ_s_halts ϕ_halts ϕ_s ϕ
+  · unfold ϕs_halts ϕ_halts ϕs ϕ
     simp only [Part.dom_iff_mem, evaln_complete, Option.mem_def, Option.isSome_iff_exists,
     Option.ite_none_right_eq_some, exists_and_left]
     intro ⟨x, ⟨k, h⟩⟩
@@ -122,75 +122,40 @@ lemma ϕ_complete : ϕ_halts e n ↔ ∃ s, ϕ_s_halts e s n := by
     simp only [hx, true_and, and_self]
     exact evaln_mono (le_of_succ_le hk) h
   · intro ⟨s, h⟩
-    exact ϕ_sound h
+    exact ϕsound h
 
 /- If ϕₑ,ₛ(n)↓, then n < s -/
 @[grind →, simp]
-lemma ϕ_input_bound (h : ϕ_s_halts e s n) : n < s := by
-  simp only [ϕ_s_halts, ϕ_s, Option.mem_def, Option.isSome_iff_exists,
+lemma ϕ_input_bound (h : ϕs_halts e s n) : n < s := by
+  simp only [ϕs_halts, ϕs, Option.mem_def, Option.isSome_iff_exists,
     Option.ite_none_right_eq_some, exists_and_left] at h
   obtain ⟨x, hx⟩ := h.right
   exact Code.evaln_bound hx
 
 /- If ϕₑ,ₛ(n) = y, then y < s -/
 @[grind →, simp]
-lemma ϕ_output_bound (h : y ∈ (ϕ_s e s n)) : y < s := by
-  simp only [ϕ_s, Option.mem_def, Option.ite_none_right_eq_some] at h
+lemma ϕ_output_bound (h : y ∈ (ϕs e s n)) : y < s := by
+  simp only [ϕs, Option.mem_def, Option.ite_none_right_eq_some] at h
   grind
 
 /- If ϕₑ,ₛ(n)↓, then e < s -/
 @[grind →, simp]
-lemma ϕ_index_bound (h : ϕ_s_halts e s n) : e < s := by grind [ϕ_s_halts, ϕ_s]
+lemma ϕ_index_bound (h : ϕs_halts e s n) : e < s := by grind [ϕs_halts, ϕs]
 
 /- Helper lemmas - ϕ_{e, 0}(n)↑ -/
 @[grind →, simp]
-lemma halt_stage_gt_zero (h : ϕ_s_halts e s n) : s > 0 := by grind [ϕ_s_halts, ϕ_s]
+lemma halt_stage_gt_zero (h : ϕs_halts e s n) : s > 0 := by grind [ϕs_halts, ϕs]
 
 @[grind ., simp]
-lemma stage_zero_diverges : ¬ ϕ_s_halts e 0 n := by grind [ϕ_s_halts, ϕ_s]
-
-open Primrec
-
--- a helper lemma for showing that ϕ_s is primitive recursive
-private lemma bounded_exists (f : ℕ → ℕ → Prop) (s : ℕ) [DecidableRel f]
-    (hf : PrimrecRel f) :
-      PrimrecPred (λ n => ∃ y < s, (f y n)) := by
-    have h := PrimrecRel.exists_mem_list hf
-    unfold PrimrecRel at h
-    have hpair : Primrec (λ n : ℕ => (List.range s, n)) :=
-      (Primrec.const (List.range s)).pair Primrec.id
-    have h3 := h.comp hpair
-    simp_all only [List.mem_range]
-
-/- ϕₑ,ₛ is a primitive recursive function -/
-lemma ϕ_s_primrec : Primrec (ϕ_s e s) := by
-  have h := primrec_evaln.comp (pair (pair (const s) (const (ofNatCode e))) .id)
-  apply ite (PrimrecPred.and (PrimrecRel.comp nat_lt (const e) (const s)) ?_) h (const Option.none)
-  apply bounded_exists
-  simp only [PrimrecRel, Option.mem_def]
-  exact PrimrecRel.comp Primrec.eq (.comp h snd) (option_some_iff.mpr fst)
-
-/- ϕ_s_halts is a primitive recursive predicate -/
-lemma ϕ_s_halts_primrec : PrimrecPred (ϕ_s_halts e s) := by
-  have h (n : ℕ) : (∃ x, ϕ_s e s n = some x) ↔ (∃ x < s, ϕ_s e s n = some x) := by
-    constructor
-    · intro ⟨x, h⟩
-      use x
-      simp only [ϕ_output_bound h, h, and_self]
-    · simp_all
-  unfold ϕ_s_halts
-  simp only [Option.isSome_iff_exists, h]
-  apply bounded_exists
-  apply PrimrecRel.comp₂ Primrec.eq (comp₂ (ϕ_s_primrec) (Primrec₂.right))
-  exact comp₂ option_some Primrec₂.left
+lemma stage_zero_diverges : ¬ ϕs_halts e 0 n := by grind [ϕs_halts, ϕs]
 
 /- ϕₑ,ₛ(n) is decidable -/
-instance (e s n : ℕ) : Decidable (ϕ_s e s n).isSome :=
-  (ϕ_s e s n).isSome.decEq true
+instance (e s n : ℕ) : Decidable (ϕs e s n).isSome :=
+  (ϕs e s n).isSome.decEq true
 
 /- ϕₑ,ₛ(n) is decidable -/
-instance (e s n : ℕ) : Decidable (ϕ_s_halts e s n) :=
-  instDecidableEqBoolIsSomeNatϕ_sTrue e s n
+instance (e s n : ℕ) : Decidable (ϕs_halts e s n) :=
+  instDecidableEqBoolIsSomeNatϕsTrue e s n
 
 /- ϕₑ is a partial computable function -/
 theorem ϕ_partrec : Nat.Partrec (ϕ e) := by
@@ -200,9 +165,9 @@ theorem ϕ_partrec : Nat.Partrec (ϕ e) := by
 
 /- Monotonicity of halting: if s < t and ϕ_{e,s}(n)↓, then ϕ_{e,t}(n)↓ -/
 @[grind →, simp]
-lemma ϕ_halts_mono (h : s ≤ t) (h1 : ϕ_s_halts e s n) : ϕ_s_halts e t n := by
+lemma ϕ_halts_mono (h : s ≤ t) (h1 : ϕs_halts e s n) : ϕs_halts e t n := by
   revert h1
-  simp only [ϕ_s_halts, ϕ_s, Option.mem_def, Option.isSome_iff_exists,
+  simp only [ϕs_halts, ϕs, Option.mem_def, Option.isSome_iff_exists,
     Option.ite_none_right_eq_some, exists_and_left, and_imp, forall_exists_index]
   intro _ x _ h3 _ _
   constructor
@@ -216,67 +181,179 @@ lemma ϕ_halts_mono (h : s ≤ t) (h1 : ϕ_s_halts e s n) : ϕ_s_halts e t n := 
 
 /- Reverse monotonicity of halting: if s < t and ϕ_{e,t}(n)↑, then ϕ_{e,s}(n)↑ -/
 @[grind →, simp]
-lemma ϕ_halts_mono_reverse (h : s ≤ t) (h1 : ¬ ϕ_s_halts e t n) : ¬ ϕ_s_halts e s n := by
+lemma ϕ_halts_mono_reverse (h : s ≤ t) (h1 : ¬ ϕs_halts e t n) : ¬ ϕs_halts e s n := by
   grind
 
 /- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
-@[grind, simp]
-def runtime (e n : ℕ) : Part ℕ := rfind (fun s => (ϕ_s e s n).isSome)
+def runtime (e n : ℕ) : Part ℕ := rfind (fun s => (ϕs e s n).isSome)
 
-/- TODO: runtime lemmas can be cleaned up with Nat.rfind spec/min? -/
-/- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
+/- If the runtime of ϕₑ(n) is r, then ϕₑ,ᵣ(n)↓ -/
 @[simp]
-lemma runtime_spec (r : ℕ) (h : r ∈ runtime e n) : ϕ_s_halts e r n := by
-  simp_all only [runtime, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, Bool.false_eq,
-    Option.isSome_eq_false_iff, Option.isNone_iff_eq_none, ϕ_s_halts]
+lemma runtime_spec (h : r ∈ runtime e n) : ϕs_halts e r n := by
+  have h1 := rfind_spec h
+  simp at h1
+  exact h1
 
-lemma runtime_min (r : ℕ) (h : r ∈ (runtime e n)) : ∀ t, t < r → ¬ ϕ_s_halts e t n := by
-  simp_all
+/- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
+lemma runtime_min (h : r ∈ (runtime e n)) : ∀ t, t < r → ¬ ϕs_halts e t n := by
+  intro t ht
+  have h1 := rfind_min h ht
+  simp at h1
+  unfold ϕs_halts
+  exact Option.not_isSome_iff_eq_none.mpr h1
+
+/- Runtime r is minimal - if ϕₑ,ₛ(n)↓, then r ≤ s -/
+lemma runtime_min' (h : ϕs_halts e s n) : ∃ r ∈ runtime e n, r ≤ s := by
+  exact rfind_min' h
+
+@[simp]
+lemma runtime_mem :  s ∈ runtime e n ↔ ϕs_halts e s n ∧ ∀ t < s, ¬ ϕs_halts e t n := by
+  constructor
+  <;> intro h
+  · exact ⟨runtime_spec h, runtime_min h⟩
+  · have ⟨r, ⟨h1, h2⟩⟩ := runtime_min' h.left
+    have hr : s ≤ r := by
+      by_contra h3
+      push Not at h3
+      apply h.right at h3
+      revert h3
+      simp only [imp_false, Decidable.not_not]
+      exact runtime_spec h1
+    have hrs : s = r := by refine Nat.le_antisymm hr h2
+    rw [hrs]
+    exact h1
 
 /- ϕₑ(n)↓ iff there is a *least* stage s at which ϕₑ,ₛ(n)↓ -/
 @[grind =, simp]
 lemma ϕ_halts_runtime_exists : ϕ_halts e n ↔ ∃ r, r ∈ runtime e n := by
+  simp_rw [runtime_mem, ϕ_complete]
   constructor
   · intro h
-    rcases (ϕ_complete.mp h) with ⟨s, hs⟩
+    obtain ⟨s, h⟩ := h
     have h1 : (runtime e n).Dom := by
       unfold runtime
       use s
-      simp only [Part.coe_some, Part.mem_some_iff, Bool.true_eq, Part.some_dom,
-        implies_true, and_true]
-      exact hs
+      simp only [Part.coe_some, Part.mem_some_iff, Bool.true_eq, Part.some_dom, implies_true,
+        and_true]
+      exact h
     simpa [Part.dom_iff_mem] using h1
   · intro ⟨r, h⟩
-    apply runtime_spec at h
-    exact ϕ_complete.mpr ⟨r, h⟩
+    exact ⟨r, h.left⟩
 
-/- Wₑ,ₛ = the domain of ϕₑ,ₛ, i.e. elements entering before stage s.
-As all inputs n ≥ s do not halt, this set is necessarily finite. -/
-@[grind, simp]
-def W_s (e s : ℕ): Finset ℕ := (Finset.range s).filter (ϕ_s_halts e s)
+/- The elements whose computations first halt at stage s, in ascending order.
+By definition, these elements are less than s. -/
+def ϕNew (e s : ℕ) : List ℕ := (List.range s).filter
+  (λ n ↦ ϕs_halts e s n ∧ ¬ ϕs_halts e (s-1) n)
+
+@[simp]
+lemma ϕNew_mem : n ∈ ϕNew e s ↔ ϕs_halts e s n ∧ ¬ ϕs_halts e (s-1) n := by
+  simp [ϕNew]
+  intro h _
+  exact ϕ_input_bound h
+
+/- ϕNew e s contains exactly the elements with runtime s. -/
+lemma ϕNew_runtime (e x r : ℕ) : x ∈ ϕNew e r ↔ r ∈ runtime e x := by
+  simp [runtime, Part.coe_some, mem_rfind,
+    Part.mem_some_iff, Bool.true_eq, Bool.false_eq, Option.isSome_eq_false_iff,
+    Option.isNone_iff_eq_none]
+  constructor
+  <;> intro ⟨h, h1⟩
+  <;> constructor
+  · exact h
+  · intro m hm
+    contrapose h1
+    apply ϕ_halts_mono (le_sub_one_of_lt hm) (Option.isSome_iff_ne_none.mpr h1)
+  · exact h
+  · by_cases hr : r = 0
+    · simp [hr]
+    · have h2 : r-1 < r := by exact Nat.sub_one_lt hr
+      simp_all only [tsub_lt_self_iff, zero_lt_one, and_true, ϕs_halts, and_self,
+        Option.isSome_none, Bool.false_eq_true, not_false_eq_true]
+
+/- The elements in W_e enumerated up to stage s, in the order they appeared. Elements halting
+at the same time are enumerated in asceding order. -/
+def Ws (e : ℕ) : ℕ → List ℕ
+    | 0     => []
+    | s + 1 => (Ws e s) ++ ϕNew e (s+1)
+
+/- Ws is exactly the set of n for which ϕₑ,ₛ(n)↓ -/
+@[simp]
+lemma Ws_mem : n ∈ Ws e s ↔ ϕs_halts e s n := by
+  induction s with | zero | succ s hs
+  · simp only [Ws, List.not_mem_nil, ϕs_halts, false_iff, Bool.not_eq_true,
+    Option.isSome_eq_false_iff, Option.isNone_iff_eq_none]
+    exact Option.isNone_iff_eq_none.mp rfl
+  · unfold Ws
+    rw [List.mem_append, hs, ϕNew]
+    simp only [add_tsub_cancel_right, Bool.decide_and, List.mem_filter,
+      List.mem_range, Bool.and_eq_true, decide_eq_true_eq]
+    constructor
+    <;> intro h
+    · apply Or.elim h
+      <;> intro h1
+      · exact ϕ_halts_mono (Nat.le_add_right s 1) h1
+      · simp_all only [ϕs_halts, Bool.not_eq_true, Option.isSome_eq_false_iff,
+        Option.isNone_iff_eq_none, true_and]
+    · by_cases h1 : ϕs_halts e s n
+      · exact Or.inl h1
+      · exact Or.inr ⟨ϕ_input_bound h, ⟨h, h1⟩⟩
+
+/- Elements cannot be enumerated twice-/
+lemma nodup_Ws (e s : ℕ) : Nodup (Ws e s) := by
+  induction s with | zero | succ s ih
+  · simp [Ws]
+  · simp only [Ws, ϕNew]
+    apply List.Nodup.append ih
+    · apply Nodup.filter
+      exact nodup_range
+    · refine disjoint_left.mpr ?_
+      simp only [Ws_mem, add_tsub_cancel_right, Bool.decide_and, decide_not, mem_filter, mem_range,
+        Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true,
+        decide_eq_false_iff_not, not_and, Decidable.not_not]
+      intro _ haW _ _
+      exact haW
+
+-- @[simp]
+-- lemma Ws_gt_zero : n ∈ Ws e s → s > 0 := by
+--   simp only [Ws_mem]
+--   intro h
+--   apply ϕ_input_bound at h
+--   omega
+
+-- @[simp]
+-- lemma Ws_zero_empty : Ws e 0 = ∅ := by simp [Ws]
+
+/- Monotonicity of Ws -/
+@[simp]
+lemma Ws_mono (e : ℕ) (h : s ≤ t) : (Ws e s) <+: (Ws e t) := by
+  induction t generalizing s with | zero | succ t ih
+  · simp_all [Ws]
+  · by_cases hst : s = t+1
+    · simp [hst]
+    · replace h : s ≤ t := by omega
+      have ht : (Ws e t) <+: (Ws e (t+1)) := by simp [Ws]
+      exact List.IsPrefix.trans (ih h) ht
+
+/- Reverse monotonicity of Ws-/
+@[simp]
+lemma Ws_mono_reverse (h : s ≤ t) (hx : x ∉ Ws e t) : x ∉ Ws e s := by
+  contrapose hx
+  exact Multiset.mem_coe.mp (List.IsPrefix.subset (Ws_mono e h) hx)
+
+/- Membership in some W_{e,s} implies runtime r exists, and membership in W_{e, r}-/
+@[grind ., simp]
+lemma Ws_runtime (h : n ∈ Ws e s) : ∃ r ≤ s, r ∈ runtime e n ∧ n ∈ Ws e r := by
+  rw [Ws_mem] at h
+  have ⟨r, hr⟩ := runtime_min' h
+  refine ⟨r, ⟨hr.right, ⟨hr.left, ?_⟩⟩⟩
+  simp only [Ws_mem]
+  refine runtime_spec hr.left
 
 /- Wₑ = {n | ϕₑ(n)↓} -/
-@[grind, simp]
 def W (e : ℕ) : Set ℕ := (ϕ e).Dom
 
-instance (e s n : ℕ) : Decidable (n ∈ W_s e s) :=
-  Finset.decidableMem n (Finset.filter (ϕ_s_halts e s) (Finset.range s))
-
-lemma W_s_primrec (e : ℕ) : Primrec fun (s : ℕ) ↦ W_s e s := by
-  have h0 (s) : PrimrecPred (ϕ_s_halts e s) := ϕ_s_halts_primrec
-  unfold W_s
-  sorry
-
-
-
-/- The Wₑ,ₛ are primitive recursive-/
-lemma W_s_Primrec' : Primrec.set (W_s e s) := by
-  exact finite (Finset.finite_toSet (W_s e s))
-  -- simp only [Primrec.set, W_s, Finset.coe_filter, Finset.mem_range, Set.mem_setOf_eq]
-  -- use ϕ_s_halts e s
-  -- constructor
-  -- · exact Primrec.ite (ϕ_s_halts_primrec) (const true) (const false)
-  -- · grind
+@[simp]
+lemma W_mem : n ∈ W e ↔ ϕ_halts e n := Eq.to_iff rfl
 
 /- The Wₑ are Σ01 -/
 lemma W_Sigma01 (e : ℕ) : Sigma01 (W e) := by
@@ -305,57 +382,78 @@ lemma Sigma01_is_W (h : Sigma01 X) : ∃ e, X = W e := by
 /- The Σ01 sets are exactly the Wₑ -/
 lemma Sigma01_iff_W : Sigma01 X ↔ ∃ e, X = W e := by grind [Sigma01_is_W, W_Sigma01]
 
-/- ϕₑ,ₛ(n)↓ iff n ∈ Wₑ,ₛ -/
-@[simp]
-lemma W_s_ϕ_s : n ∈ W_s e s ↔ ϕ_s_halts e s n := by
-  simp_all only [W_s, Finset.mem_filter, Finset.mem_range, ϕ_s_halts, and_iff_right_iff_imp]
-  exact fun a ↦ ϕ_input_bound a
-
-@[simp]
-lemma Ws_gt_zero : n ∈ W_s e s → s > 0 := by grind
-
-@[simp]
-lemma Ws_zero_empty : W_s e 0 = ∅ := by grind
-
 /- ϕₑ(x)↓ ↔ x ∈ Wₑ -/
 @[simp]
 lemma mem_W_ϕ : n ∈ W e ↔ ϕ_halts e n := by exact Eq.to_iff rfl
 
-/- Monotonicity of W_s: W_s ⊆ W_{e, s+1}  -/
-@[simp]
-lemma W_s_mono (h : s ≤ t) : (W_s e s) ⊆ (W_s e t) := by grind
-
-/- Reverse monotonicity of W_s-/
-@[simp]
-lemma W_s_mono_reverse (h : s ≤ t) (hx : x ∉ W_s e t) : x ∉ W_s e s := by grind
-
-/- Membership in some W_{e,s} implies runtime r exists, and membership in W_{e, r}-/
-@[grind ., simp]
-lemma Ws_runtime (h : n ∈ W_s e s) : ∃ r, r ∈ runtime e n ∧ n ∈ W_s e r := by
-  have ⟨r, h1⟩ := ϕ_halts_runtime_exists.mp (ϕ_complete.mpr ⟨s, W_s_ϕ_s.mp h⟩)
-  refine ⟨r, ⟨h1, W_s_ϕ_s.mpr ?_⟩⟩
-  apply runtime_spec at h1
-  exact h1
-
 /- Wₑ,ₛ ⊆ Wₑ  -/
 @[grind! ., simp]
-lemma W_s_subset_W : ↑(W_s e s) ⊆ W e := by
+lemma Ws_subset_W : ↑(Ws e s).toFinset ⊆ W e := by
   intro x h
-  rw [mem_W_ϕ]
-  simp only [W_s, Finset.coe_filter, Finset.mem_range, Set.mem_setOf_eq] at h
-  rw [ϕ_complete]
-  grind
+  simp [Set.mem_setOf_eq] at h
+  exact ϕsound h
 
 /- Wₑ = ⋃ₛ Wₑ,ₛ -/
 @[grind =, simp]
-lemma W_mem_iff_W_s : n ∈ W e ↔ ∃ s, n ∈ W_s e s := by
+lemma W_iff_Ws : n ∈ W e ↔ ∃ s, n ∈ Ws e s := by
   constructor
   · intro h
-    simp only [W_s_ϕ_s]
+    simp only [Ws_mem]
     exact ϕ_complete.mp (mem_W_ϕ.mp h)
-  · grind
+  · intro ⟨s, h⟩
+    simp_all only [Ws_mem, W_mem]
+    exact ϕsound h
 
-lemma W_eq_union_W_s : W e = ⋃ (s : ℕ), W_s e s := by
+lemma W_eq_union_Ws : W e = ⋃ (s : ℕ), (Ws e s).toFinset := by
   ext x
-  rw [W_mem_iff_W_s]
+  rw [W_iff_Ws]
   simp
+
+open Primrec
+
+private lemma bounded_exists_var (f : ℕ → ℕ × ℕ → Prop) [DecidableRel f] (hf : PrimrecRel f) :
+    PrimrecPred (fun x : ℕ × ℕ => ∃ y < x.1, f y x) := by
+  replace hf := PrimrecRel.exists_mem_list hf
+  unfold PrimrecRel at hf
+  have hpair : Primrec (fun x : ℕ × ℕ => (List.range x.1, x)) := by
+    exact (Primrec.list_range.comp Primrec.fst).pair Primrec.id
+  replace hf := hf.comp hpair
+  simpa only [List.mem_range] using hf
+
+/- ϕₑ,ₛ is a primitive recursive function -/
+lemma ϕs_primrec₂ : Primrec₂ (ϕs e) := by
+  unfold Primrec₂
+  have h := primrec_evaln.comp (pair (pair fst (const (ofNatCode e))) snd)
+  apply ite (PrimrecPred.and (PrimrecRel.comp nat_lt (const e) fst) ?_) h (const Option.none)
+  apply bounded_exists_var
+  simp only [PrimrecRel, Option.mem_def]
+  exact PrimrecRel.comp Primrec.eq (.comp h snd) (option_some_iff.mpr fst)
+
+/- ϕₑ,ₛ(n)↓ is a primitive recursive relative -/
+lemma ϕs_halts_primrecRel (e : ℕ) : PrimrecRel (fun s n : ℕ => ϕs_halts e s n) := by
+  unfold ϕs_halts
+  apply Primrec.primrecPred
+  simp [Option.isSome_iff_exists]
+  exact Primrec.option_isSome.comp ((ϕs_primrec₂ (e := e)).comp fst snd)
+
+/- ϕNew is a primitive recursive function -/
+lemma ϕNew_primrec (e : ℕ) : Primrec (ϕNew e) := by
+  let R : ℕ → ℕ → Prop := fun n s => ϕs_halts e s n ∧ ¬ ϕs_halts e (s - 1) n
+  have hpred : Primrec₂ fun (n : ℕ) (s : ℕ) => s - 1 := Primrec₂.comp nat_sub snd (Primrec.const 1)
+  have hR1 := PrimrecRel.comp₂ (ϕs_halts_primrecRel e) hpred
+    (Primrec₂.left : Primrec₂ fun (n : ℕ) (_s : ℕ) => n)
+  have hR : PrimrecRel R := by
+    dsimp [R]
+    change PrimrecPred fun p : ℕ × ℕ => ϕs_halts e p.2 p.1 ∧ ¬ ϕs_halts e (p.2 - 1) p.1
+    exact PrimrecPred.and (ϕs_halts_primrecRel e).swap (PrimrecPred.not hR1)
+  exact ((PrimrecRel.listFilter hR).comp Primrec.list_range Primrec.id).of_eq fun s => by
+    simp [ϕNew, R]
+
+lemma Ws_primrec (e : ℕ) (hϕNew : Primrec (ϕNew e)) : Primrec (Ws e) := by
+  have hϕNew₂ : Primrec₂ fun (s : ℕ) (L : List ℕ) => ϕNew e (s + 1) := by
+    refine Primrec.comp₂ hϕNew (comp₂ succ Primrec₂.left)
+  have hstep := Primrec₂.comp₂ Primrec.list_append
+    (Primrec₂.right : Primrec₂ fun (_s : ℕ) (L : List ℕ) => L) hϕNew₂
+  exact (Primrec.nat_rec₁ ([] : List ℕ) hstep).of_eq fun s => by induction s with
+    | zero => simp [Ws]
+    | succ s ih => simp [Ws, ih]
