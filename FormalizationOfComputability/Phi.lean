@@ -185,37 +185,58 @@ lemma ϕ_halts_mono_reverse (h : s ≤ t) (h1 : ¬ ϕs_halts e t n) : ¬ ϕs_hal
 /- The least stage s at which ϕₑ,ₛ(n)↓ (if it exists) -/
 def runtime (e n : ℕ) : Part ℕ := rfind (fun s => (ϕs e s n).isSome)
 
-/- TODO: runtime lemmas can be cleaned up with Nat.rfind spec/min? -/
-/- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
+/- If the runtime of ϕₑ(n) is r, then ϕₑ,ᵣ(n)↓ -/
 @[simp]
 lemma runtime_spec (h : r ∈ runtime e n) : ϕs_halts e r n := by
   have h1 := rfind_spec h
   simp at h1
   exact h1
 
-lemma runtime_min (r : ℕ) (h : r ∈ (runtime e n)) : ∀ t, t < r → ¬ ϕs_halts e t n := by
+/- Runtime r is minimal - if s < r, then ϕₑ,ₛ(n)↑ -/
+lemma runtime_min (h : r ∈ (runtime e n)) : ∀ t, t < r → ¬ ϕs_halts e t n := by
   intro t ht
   have h1 := rfind_min h ht
   simp at h1
   unfold ϕs_halts
   exact Option.not_isSome_iff_eq_none.mpr h1
 
+/- Runtime r is minimal - if ϕₑ,ₛ(n)↓, then r ≤ s -/
+lemma runtime_min' (h : ϕs_halts e s n) : ∃ r ∈ runtime e n, r ≤ s := by
+  exact rfind_min' h
+
+@[simp]
+lemma runtime_mem :  s ∈ runtime e n ↔ ϕs_halts e s n ∧ ∀ t < s, ¬ ϕs_halts e t n := by
+  constructor
+  <;> intro h
+  · exact ⟨runtime_spec h, runtime_min h⟩
+  · have ⟨r, ⟨h1, h2⟩⟩ := runtime_min' h.left
+    have hr : s ≤ r := by
+      by_contra h3
+      push Not at h3
+      apply h.right at h3
+      revert h3
+      simp only [imp_false, Decidable.not_not]
+      exact runtime_spec h1
+    have hrs : s = r := by refine Nat.le_antisymm hr h2
+    rw [hrs]
+    exact h1
+
 /- ϕₑ(n)↓ iff there is a *least* stage s at which ϕₑ,ₛ(n)↓ -/
 @[grind =, simp]
 lemma ϕ_halts_runtime_exists : ϕ_halts e n ↔ ∃ r, r ∈ runtime e n := by
+  simp_rw [runtime_mem, ϕ_complete]
   constructor
   · intro h
-    rcases (ϕ_complete.mp h) with ⟨s, hs⟩
+    obtain ⟨s, h⟩ := h
     have h1 : (runtime e n).Dom := by
       unfold runtime
       use s
-      simp only [Part.coe_some, Part.mem_some_iff, Bool.true_eq, Part.some_dom,
-        implies_true, and_true]
-      exact hs
+      simp only [Part.coe_some, Part.mem_some_iff, Bool.true_eq, Part.some_dom, implies_true,
+        and_true]
+      exact h
     simpa [Part.dom_iff_mem] using h1
   · intro ⟨r, h⟩
-    apply runtime_spec at h
-    exact ϕ_complete.mpr ⟨r, h⟩
+    exact ⟨r, h.left⟩
 
 /- The elements whose computations first halt at stage s, in ascending order.
 By definition, these elements are less than s. -/
@@ -227,6 +248,28 @@ lemma ϕNew_mem : n ∈ ϕNew e s ↔ ϕs_halts e s n ∧ ¬ ϕs_halts e (s-1) n
   simp [ϕNew]
   intro h _
   exact ϕ_input_bound h
+
+/- ϕNew e s contains exactly the elements with runtime s. -/
+lemma ϕNew_runtime : n ∈ ϕNew e s ↔ s ∈ runtime e n := by
+  constructor
+  <;> intro h
+  · rw [ϕNew_mem] at h
+    apply runtime_mem.mpr
+    refine ⟨h.left, ?_⟩
+    intro t ht
+    have hs : s > 0 := by
+      contrapose h
+      simp_all only [gt_iff_lt, not_lt, nonpos_iff_eq_zero, stage_zero_diverges,
+        zero_tsub, not_false_eq_true, and_true]
+    replace ht := (Nat.le_sub_one_iff_lt hs).mpr ht
+    exact ϕ_halts_mono_reverse ht h.right
+  · rw [runtime_mem] at h
+    simp_all
+    apply h.right
+    contrapose h
+    simp_all only [tsub_lt_self_iff, zero_lt_one, and_true, not_lt, nonpos_iff_eq_zero,
+      stage_zero_diverges, _root_.not_lt_zero, IsEmpty.forall_iff, implies_true,
+      not_false_eq_true]
 
 /- The elements in W_e enumerated up to stage s, in the order they appeared. Elements halting
 at the same time are enumerated in asceding order. -/
@@ -286,10 +329,12 @@ lemma Ws_mono_reverse (h : s ≤ t) (hx : x ∉ Ws e t) : x ∉ Ws e s := by
 
 /- Membership in some W_{e,s} implies runtime r exists, and membership in W_{e, r}-/
 @[grind ., simp]
-lemma Ws_runtime (h : n ∈ Ws e s) : ∃ r, r ∈ runtime e n ∧ n ∈ Ws e r := by
-  have ⟨r, h1⟩ := ϕ_halts_runtime_exists.mp (ϕ_complete.mpr ⟨s, Ws_mem.mp h⟩)
-  refine ⟨r, ⟨h1, Ws_mem.mpr ?_⟩⟩
-  exact runtime_spec h1
+lemma Ws_runtime (h : n ∈ Ws e s) : ∃ r ≤ s, r ∈ runtime e n ∧ n ∈ Ws e r := by
+  rw [Ws_mem] at h
+  have ⟨r, hr⟩ := runtime_min' h
+  refine ⟨r, ⟨hr.right, ⟨hr.left, ?_⟩⟩⟩
+  simp only [Ws_mem]
+  refine runtime_spec hr.left
 
 /- Wₑ = {n | ϕₑ(n)↓} -/
 def W (e : ℕ) : Set ℕ := (ϕ e).Dom
