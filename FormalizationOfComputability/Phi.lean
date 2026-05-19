@@ -250,26 +250,23 @@ lemma ϕNew_mem : n ∈ ϕNew e s ↔ ϕs_halts e s n ∧ ¬ ϕs_halts e (s-1) n
   exact ϕ_input_bound h
 
 /- ϕNew e s contains exactly the elements with runtime s. -/
-lemma ϕNew_runtime : n ∈ ϕNew e s ↔ s ∈ runtime e n := by
+lemma ϕNew_runtime_iff (e x r : ℕ) : x ∈ ϕNew e r ↔ r ∈ runtime e x := by
+  simp [runtime, Part.coe_some, mem_rfind,
+    Part.mem_some_iff, Bool.true_eq, Bool.false_eq, Option.isSome_eq_false_iff,
+    Option.isNone_iff_eq_none]
   constructor
-  <;> intro h
-  · rw [ϕNew_mem] at h
-    apply runtime_mem.mpr
-    refine ⟨h.left, ?_⟩
-    intro t ht
-    have hs : s > 0 := by
-      contrapose h
-      simp_all only [gt_iff_lt, not_lt, nonpos_iff_eq_zero, stage_zero_diverges,
-        zero_tsub, not_false_eq_true, and_true]
-    replace ht := (Nat.le_sub_one_iff_lt hs).mpr ht
-    exact ϕ_halts_mono_reverse ht h.right
-  · rw [runtime_mem] at h
-    simp_all
-    apply h.right
-    contrapose h
-    simp_all only [tsub_lt_self_iff, zero_lt_one, and_true, not_lt, nonpos_iff_eq_zero,
-      stage_zero_diverges, _root_.not_lt_zero, IsEmpty.forall_iff, implies_true,
-      not_false_eq_true]
+  <;> intro ⟨h, h1⟩
+  <;> constructor
+  · exact h
+  · intro m hm
+    contrapose h1
+    apply ϕ_halts_mono (le_sub_one_of_lt hm) (Option.isSome_iff_ne_none.mpr h1)
+  · exact h
+  · by_cases hr : r = 0
+    · simp [hr]
+    · have h2 : r-1 < r := by exact Nat.sub_one_lt hr
+      simp_all only [tsub_lt_self_iff, zero_lt_one, and_true, ϕs_halts, and_self,
+        Option.isSome_none, Bool.false_eq_true, not_false_eq_true]
 
 /- The elements in W_e enumerated up to stage s, in the order they appeared. Elements halting
 at the same time are enumerated in asceding order. -/
