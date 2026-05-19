@@ -31,7 +31,7 @@ An ongoing effort to formalize computability theory notions involving subsets of
 - W_e is finite iff for all large enough s, Wenum e s = Option.none
 
 **Classical Computability Theory**
-- Increasing c.e. sets are computable
+- Increasing c.e. sequences are computable
 - Immunity and cohesiveness are defined, with various lemmata
 
 **To do:**
