@@ -106,7 +106,7 @@ lemma immune_is_coinf (X : Set ℕ) (hX : Immune X) : Coinfinite X := by
     revert hX
     simp
     unfold Immune
-    push_neg
+    push Not
     use X
     constructor
     · simp [Coinfinite] at h1
@@ -120,7 +120,7 @@ lemma immune_is_coinf (X : Set ℕ) (hX : Immune X) : Coinfinite X := by
 
 lemma sigma01_not_immune (X : Set ℕ) (hX : Sigma01 X) (hInf : X.Infinite) : ¬ Immune X := by
 unfold Immune
-push_neg
+push Not
 apply sigma01_has_delta01_subset at hX
 apply hX at hInf
 obtain ⟨Y, ⟨hYDelta, ⟨hYInf, hYX⟩⟩⟩ := hInf
@@ -165,7 +165,7 @@ lemma cohesive_is_coinf (C : Set ℕ) (hC : Cohesive C) : Coinfinite C := by
   unfold Coinfinite at hC
   rw [Set.not_infinite] at hC
   unfold Cohesive
-  push_neg
+  push Not
   use Evens
   constructor
   · exact set_sigma01_evens
@@ -282,7 +282,7 @@ theorem pi01Immune_is_immune (X : Set ℕ) (hX: Pi01Immune X) : Immune X := by
   revert hX
   unfold Immune at h
   unfold Pi01Immune
-  push_neg at h
+  push Not at h
   simp
   obtain ⟨Y, ⟨⟨hYDelta01, hYInf⟩, hYX⟩⟩ := h
   use Y
@@ -296,7 +296,7 @@ theorem pi01Immune_is_immune (X : Set ℕ) (hX: Pi01Immune X) : Immune X := by
 theorem Pi01Cohesive (C : Set ℕ) (hC: Cohesive C): Inf_coinf C → (Pi01 C ↔ ¬ Pi01Immune C) := by
   intro ⟨hInf, hCInf⟩
   unfold Pi01Immune
-  push_neg
+  push Not
   constructor
   · intro hP
     use C -- this direction is trivial, as C ⊆ C ∈ Π⁰₁
