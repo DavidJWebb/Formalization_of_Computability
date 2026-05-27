@@ -12,7 +12,7 @@ import Mathlib.Computability.Primrec.Basic
 import Mathlib.Logic.Encodable.Pi
 
 open List
-open Denumerable Encodable Function
+open Denumerable Encodable Function Computable
 
 variable {α : Type*} {β : Type*} {σ : Type*}
 variable [Primcodable α] [Primcodable β] [Primcodable σ]
@@ -32,9 +32,7 @@ protected theorem _root_.ComputablePred.eq [DecidableEq β] {f g : α → β}
   have hEq : Computable₂ fun x y : β => decide (x = y) := (Primrec.eq (α := β)).decide.to_comp
   exact hEq.comp hf hg
 
-
 namespace Computable
-
 
 -- lemma of_graph
 --     {α β : Type*} [Primcodable α] [Primcodable β] [DecidableEq β]
@@ -60,7 +58,7 @@ protected theorem or : Computable₂ or :=
 
 protected theorem _root_.ComputablePred.and {p q : α → Prop} :
     (hp : ComputablePred p) → (hq : ComputablePred q) → ComputablePred fun a => p a ∧ q a
-  | ⟨_, hp⟩, ⟨_, hq⟩ => Computable.computablePred <| Computable.and.comp hp hq |>.of_eq <| by simp
+  | ⟨_, hp⟩, ⟨_, hq⟩ => computablePred <| Computable.and.comp hp hq |>.of_eq <| by simp
 
 private theorem list_casesOn' {f : α → List β} {g : α → σ} {h : α → β × List β → σ}
     (hf : haveI := prim H; Computable f) (hg : Computable g) (hh : haveI := prim H; Computable₂ h) :
@@ -70,21 +68,21 @@ private theorem list_casesOn' {f : α → List β} {g : α → σ} {h : α → �
       (@decode (Option (β × List β)) _ (encode (f a))).map fun o => Option.casesOn o (g a) (h a) :=
     ((@map_decode_iff _ (Option (β × List β)) _ _ _ _ _).2 <|
       to₂ <| option_casesOn snd (hg.comp fst)
-        (hh.comp₂ (Computable.fst.comp Computable.fst).to₂ Computable.snd.to₂)).comp
+        (hh.comp₂ (fst.comp fst).to₂ snd.to₂)).comp
       .id (encode_iff.2 hf)
   option_some_iff.1 <| this.of_eq fun a => by rcases f a with - | ⟨b, l⟩ <;> simp [encodek]
 
 theorem nat_rec' {f : α → ℕ} {g : α → β} {h : α → ℕ × β → β}
     (hf : Computable f) (hg : Computable g) (hh : Computable₂ h) :
     Computable fun a => (f a).rec (motive := fun _ => β) (g a) fun n IH => h a (n, IH) := by
-  simpa using Computable.nat_rec hf hg hh
+  simpa using nat_rec hf hg hh
 
 theorem nat_iterate {f : α → ℕ} {g : α → β} {h : α → β → β}
     (hf : Computable f) (hg : Computable g) (hh : Computable₂ h) :
     Computable fun a => (h a)^[f a] (g a) := by
   have hstep : Computable₂ (fun (a : α) (p : ℕ × β) => h a p.2) :=
-    hh.comp₂ ((Computable.fst : Computable fun p : α × (ℕ × β) => p.1).to₂)
-      (((Computable.snd.comp Computable.snd) : Computable fun p : α × (ℕ × β) => p.2.2).to₂)
+    hh.comp₂ ((fst : Computable fun p : α × (ℕ × β) => p.1).to₂)
+      (((snd.comp snd) : Computable fun p : α × (ℕ × β) => p.2.2).to₂)
   exact (nat_rec' hf hg hstep).of_eq fun a => by
       induction f a <;>
         simp [*, -Function.iterate_succ, Function.iterate_succ']
@@ -98,15 +96,15 @@ private theorem list_foldl'
   letI := prim H
   let G (a : α) (IH : σ × List β) : σ × List β := List.casesOn IH.2 IH fun b l => (h a (IH.1, b), l)
   have hG : Computable₂ G :=
-    list_casesOn' H (Computable.snd.comp Computable.snd) Computable.snd
-      <| Computable.to₂
-      <| Computable.pair (hh.comp (Computable.fst.comp Computable.fst) (Computable.pair
-        ((Computable.fst.comp Computable.snd).comp Computable.fst)
-        (Computable.fst.comp Computable.snd)))
-        (Computable.snd.comp Computable.snd)
+    list_casesOn' H (snd.comp snd) snd
+      <| to₂
+      <| pair (hh.comp (fst.comp fst) (pair
+        ((fst.comp snd).comp fst)
+        (fst.comp snd)))
+        (snd.comp snd)
   let F := fun (a : α) (n : ℕ) => (G a)^[n] (g a, f a)
   have hF : Computable fun a => (F a (encode (f a))).1 :=
-    Computable.fst.comp <| nat_iterate (Computable.encode_iff.2 hf) (Computable.pair hg hf) hG
+    fst.comp <| nat_iterate (encode_iff.2 hf) (pair hg hf) hG
   suffices ∀ a n, F a n = (((f a).take n).foldl (fun s b => h a (s, b)) (g a), (f a).drop n) by
     refine hF.of_eq fun a => ?_
     rw [this, List.take_of_length_le (length_le_encode _)]
@@ -154,17 +152,15 @@ theorem listFilterMap {f : α → List β} {g : α → β → Option σ}
     fun _ ↦ Eq.symm <| List.filterMap_eq_flatMap_toList _ _
 
 /-- Filtering a list for elements that satisfy a decidable predicate is computable. -/
-theorem listFilter
-    {p : α → Prop} [DecidablePred p]
-    (hf : ComputablePred p) :
+theorem listFilter {p : α → Prop} [DecidablePred p] (hf : ComputablePred p) :
     Computable fun L : List α ↦ List.filter (p ·) L := by
   rw [← List.filterMap_eq_filter]
   apply listFilterMap Computable.id
   simp only [Computable₂]
   let q : List α × α → Option α := fun x => bif decide (p x.2) then some x.2 else none
   have hq : Computable q :=
-    Computable.cond ((ComputablePred.decide hf).comp Computable.snd)
-    (Computable.option_some_iff.mpr Computable.snd) (Computable.const none)
+    cond ((ComputablePred.decide hf).comp snd)
+    (option_some_iff.mpr snd) (const none)
   exact hq.of_eq fun x => by simp [q, Option.guard, decide_eq_true_eq]
 
 end Computable
@@ -177,15 +173,15 @@ variable {α β : Type*} {p : α → Prop} {L : List α} {b : β}
 
 variable [Primcodable α] [Primcodable β]
 
-/-- Checking if any element of a list satisfies a computable predicate is computable. -/
+/-- Checking if any element of a list satisfies a computable predicate is  -/
 theorem exists_mem_list {p : α → Prop} [DecidablePred p] (hf : ComputablePred p) :
     ComputablePred fun L : List α ↦ ∃ a ∈ L, p a := by
   refine ⟨inferInstance, ?_⟩
   have hnonzero : Computable fun L : List α => Nat.casesOn (motive := fun _ => Bool)
         ((List.filter (fun a => p a) L).length) false (fun _ => true) :=
-  Computable.nat_casesOn (Computable.list_length.comp (Computable.listFilter hf))
-    (Computable.const false)
-    ((Computable.const true : Computable fun _ : List α × ℕ => true).to₂)
+  nat_casesOn (list_length.comp (listFilter hf))
+    (const false)
+    ((const true : Computable fun _ : List α × ℕ => true).to₂)
   exact hnonzero.of_eq fun L => by
     have hiff : (∃ a ∈ L, p a) ↔ (List.filter (fun a => p a) L).length ≠ 0 := by simp
     cases hlen' : (List.filter (fun a => p a) L).length with

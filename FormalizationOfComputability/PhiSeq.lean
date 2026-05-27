@@ -20,7 +20,7 @@ open Nat.Partrec
 open Nat.Partrec.Code
 open List --hiding isSome_getElem?
 
-variable {e s t n x y i k l : ℕ}
+variable {e s t n m x y i k l : ℕ}
 
 /- Elements never enter twice - the ϕNew are disjoint -/
 lemma ϕNew_disjoint_gt (h : s > t) : Disjoint (ϕNew e s) (ϕNew e t) := by
@@ -286,36 +286,6 @@ lemma enter_queue_enum_exact (h : List.idxOf? n (enter_queue e s) = some k) :
   · exact id (Eq.symm h1)
   · tauto
 
-/- The stage at which n is enumerated (if any).
-Note that this is *not* the stage at which ϕ_e(n)↓, as n may wait in the enter_queue. -/
-def enum_stage (e n : ℕ) : Part ℕ := Nat.rfind (fun s => (new_element e s == some n))
-
-@[simp]
-lemma enum_stage_spec (s : ℕ) (h : s ∈ enum_stage e n) : new_element e s == some n := by
-  have h1 := rfind_spec h
-  simp_all only [Part.coe_some, Part.mem_some_iff, Bool.true_eq, beq_iff_eq, BEq.rfl]
-
-@[simp]
-lemma enum_stage_min (s t : ℕ) (h : s ∈ enum_stage e n) (ht : t < s) :
-    ¬ (new_element e t == some n) := by
-  simp_all only [enum_stage, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, beq_iff_eq,
-    Bool.false_eq, beq_eq_false_iff_ne, ne_eq, not_false_eq_true]
-
-/- If n ∈ W_e, then its enumeration stage exists. -/
-lemma enum_stage_exists (e n : ℕ) (h : n ∈ W e) : (enum_stage e n).Dom := by
-  simp [enum_stage]
-  apply mem_W_ϕ.mp at h
-  apply (enter_queue_mem e n).mpr at h
-  have h1 : ∃ s k, List.idxOf? n (enter_queue e s) = some k := by
-    obtain ⟨s, h⟩ := h
-    use s
-    have h2 : (idxOf? n (enter_queue e s)).isSome := by
-      exact isSome_idxOf?.mpr h
-    exact Option.isSome_iff_exists.mp h2
-  obtain ⟨s, ⟨k, h1⟩⟩ := h1
-  apply enter_queue_enum_exact at h1
-  use s+k
-
 /- If n is in a queue, it is eventually enumerated -/
 lemma enter_queue_enum (h : n ∈ (enter_queue e s)) : ∃ t, new_element e t = n := by
   have ⟨k, h1⟩ : ∃ k, List.idxOf? n (enter_queue e s) = some k :=
@@ -391,6 +361,42 @@ instance Wenum_primrec : Primrec (Wenum e)  := by
   refine Primrec.comp (Primrec.list_head?) (enter_queue_primrec e)
 
 instance Wenum_comp : Computable (Wenum e) := Primrec.to_comp Wenum_primrec
+
+/- The stage at which n is enumerated (if any).
+Note that this is *not* the stage at which ϕ_e(n)↓, as n may wait in the enter_queue. -/
+def Wenum_stage (e n : ℕ) : Part ℕ := Nat.rfind (fun s => (new_element e s == some n))
+
+@[simp]
+lemma Wenum_stage_spec (h : s ∈ Wenum_stage e n) : Wenum e s = some n := by
+  unfold Wenum
+  have h1 := rfind_spec h
+  simp_all only [Part.coe_some, Part.mem_some_iff, Bool.true_eq, beq_iff_eq]
+
+@[simp]
+lemma Wenum_stage_min (h : s ∈ Wenum_stage e n) (ht : t < s) :
+    ¬ (new_element e t = some n) := by
+  simp_all only [Wenum_stage, Part.coe_some, mem_rfind, Part.mem_some_iff, Bool.true_eq, beq_iff_eq,
+    Bool.false_eq, beq_eq_false_iff_ne, ne_eq, not_false_eq_true]
+
+@[simp]
+lemma Wenum_nodup (h : s ≠ t) (h1 : Wenum e s = some n) (h2 : Wenum e t = some m) :
+    n ≠ m := by
+  sorry -- both elements would be in Ws, which contains no duplicates
+
+/- If n ∈ W_e, then its enumeration stage exists. -/
+lemma enum_stage_exists (n : ℕ) (h : n ∈ W e) : (Wenum_stage e n).Dom := by
+  simp [Wenum_stage]
+  apply mem_W_ϕ.mp at h
+  apply (enter_queue_mem e n).mpr at h
+  have h1 : ∃ s k, List.idxOf? n (enter_queue e s) = some k := by
+    obtain ⟨s, h⟩ := h
+    use s
+    have h2 : (idxOf? n (enter_queue e s)).isSome := by
+      exact isSome_idxOf?.mpr h
+    exact Option.isSome_iff_exists.mp h2
+  obtain ⟨s, ⟨k, h1⟩⟩ := h1
+  apply enter_queue_enum_exact at h1
+  use s+k
 
 lemma ϕ_halts_Wenum (e n : ℕ) : ϕ_halts e n ↔ ∃ s, n = Wenum e s := by
   rw [← enter_queue_mem]
@@ -471,8 +477,6 @@ lemma Wenum_finite_iff (e : ℕ) : (W e).Finite ↔ ∃ s, ∀ t ≥ s, Wenum e 
     · tauto
     · exact (append_eq_nil_iff.mp h2).right
 
-
-
 lemma Wenum_infinite_iff (e : ℕ) : (W e).Infinite ↔ ∀ s, ∃ t ≥ s, ∃ n, Wenum e t = some n := by
   have h := Wenum_finite_iff e
   have h1 : ¬ (W e).Finite ↔ (W e).Infinite := Iff.symm (Eq.to_iff rfl)
@@ -492,7 +496,6 @@ lemma queue_depletes_implies_ϕNew_stabilizes (h : ∃ t, ∀ s ≥ t, enter_que
     · tauto
     · simp only [enter_queue, append_eq_nil_iff] at h1
       simp only [h1, empty_eq]
-
 
 lemma Ws_stabilizes_implies_We_eq_Ws (h : ∃ t, ∀ s ≥ t, Ws e s = Ws e t) :
     ∃ t, W e = (Ws e t).toFinset := by

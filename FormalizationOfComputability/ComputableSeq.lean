@@ -3,11 +3,16 @@ Copyright (c) 2026 David J. Webb. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: David J. Webb
 -/
-import FormalizationOfComputability.PhiSeq
 import FormalizationOfComputability.ComputableSearch
+import FormalizationOfComputability.PhiSeq
+import Mathlib.Data.Int.ConditionallyCompleteOrder
+import Mathlib.Data.Nat.SuccPred
+import Mathlib.Order.Interval.Finset.Nat
+import Mathlib.Data.List.MinMax
 
-variable {e : ℕ}
+variable {e s t: ℕ}
 variable {α}
+variable {X : Set ℕ}
 
 namespace Computability
 
@@ -181,6 +186,10 @@ def Wenum' (h : (W e).Infinite) : Stream' ℕ :=
 def enum_stage' (n : ℕ) (h : (W e).Infinite) : Part ℕ :=
   dropNoneIndex (Wenum e) (Wenum_aux h) n
 
+@[simp]
+lemma Wenum'_stage_unique (h : (W e).Infinite) (h1 : s ≠ t) : Wenum' h s ≠ Wenum' h t := by
+  sorry -- WLOG s < t, so both elements are in Ws e t, but no duplicates in Ws
+
 /- Wenum' enumerates the same elements as Wenum -/
 lemma Wenum'_mem (n : ℕ) (h : (W e).Infinite) :
     (∃ s, Wenum e s = some n) ↔ (∃ t, Wenum' h t = n) := by
@@ -188,7 +197,7 @@ lemma Wenum'_mem (n : ℕ) (h : (W e).Infinite) :
   simp_all only [dropNoneIff (Wenum e) (Wenum_aux h)]
 
 /- If Wenum is known to be infinite, finding its next element is computable. -/
-lemma Wenum'_comp (e : ℕ) (h : (W e).Infinite) :
+lemma Wenum'_comp (h : (W e).Infinite) :
     Computable (Wenum' h) := by
   change Computable fun x => dropNone (Wenum e) (Wenum_aux h) x
   apply computable_dropNone
@@ -205,20 +214,20 @@ lemma Wenum'_comp (e : ℕ) (h : (W e).Infinite) :
       apply Computable.computablePred
       refine (ComputablePred.decide hsome).comp Primrec₂.right.to_comp
 
-instance Wenum'_dec (e : ℕ) (h : (W e).Infinite) :
+instance Wenum'_dec (h : (W e).Infinite) :
     ComputablePred fun (s, n) ↦ Wenum' h s = n :=
-  ComputablePred.eq (Computable.comp (Wenum'_comp e h) .fst) (Primrec.snd.to_comp)
+  ComputablePred.eq (Computable.comp (Wenum'_comp h) .fst) (Primrec.snd.to_comp)
 
 def Pi01 (X : Set ℕ): Prop := Sigma01 Xᶜ
 
-theorem delta01_is_sigma01 (X : Set ℕ) (h: Delta01 X) : Sigma01 X := Partrec.computable h
+theorem delta01_is_sigma01 (h: Delta01 X) : Sigma01 X := Partrec.computable h
 
-theorem delta01_is_pi01 (X : Set ℕ) (h: Delta01 X) : Pi01 X := Partrec.computable (Computable.compl h)
+theorem delta01_is_pi01 (h: Delta01 X) : Pi01 X := Partrec.computable (Computable.compl h)
 
-theorem delta01_iff_sigma01_and_pi01 (X : Set ℕ) : Delta01 X ↔ Sigma01 X ∧ Pi01 X := by
+theorem delta01_iff_sigma01_and_pi01 : Delta01 X ↔ Sigma01 X ∧ Pi01 X := by
   constructor
   · intro h
-    exact ⟨delta01_is_sigma01 X h, delta01_is_pi01 X h⟩
+    exact ⟨delta01_is_sigma01 h, delta01_is_pi01 h⟩
   · intro h
     unfold Pi01 Sigma01 at h
     unfold Delta01
@@ -233,7 +242,7 @@ lemma inc_ge_index (h : (W e).Infinite) (hinc : ∀ m n, m < n → Wenum' h m < 
   · exact Nat.zero_le _
   · exact Nat.succ_le_of_lt (lt_of_le_of_lt ih (hinc s (s + 1) (Nat.lt_succ_self s)))
 
-lemma inf_inc_sigma01_is_delta01 (h : (W e).Infinite)
+theorem inf_inc_sigma01_is_delta01 (h : (W e).Infinite)
   (hinc : ∀ m n, m < n → Wenum' h m < Wenum' h n) :
     Delta01 (W e) := by
   have hmem (x : ℕ) : x ∈ W e ↔ ∃ n, Wenum' h n = x := by
@@ -247,18 +256,120 @@ lemma inf_inc_sigma01_is_delta01 (h : (W e).Infinite)
       have hs := inc_ge_index h hinc s
       rw [h1] at hs
       exact Nat.lt_succ_of_le hs
-    · obtain ⟨s, ⟨_, h2⟩⟩ := h1
-      apply (hmem x).mpr
+    · simp_rw [(hmem x)]
+      obtain ⟨s, ⟨_, h2⟩⟩ := h1
       use s
   refine (Computable.set_iff_ComputablePred (W e)).mpr ?_
   simp_rw [hx]
-  have hargs := Primrec.to_comp <| Primrec.list_map
-        (Primrec.comp Primrec.list_range Primrec.succ)
+  have hargs := Primrec.to_comp <| Primrec.list_map (Primrec.comp Primrec.list_range Primrec.succ)
         (Primrec₂.pair.comp₂ Primrec₂.right Primrec₂.left)
   have hcomp := Computable.comp
-    (ComputablePred.decide (ComputablePred.exists_mem_list (Wenum'_dec e h))) hargs
+    (ComputablePred.decide (ComputablePred.exists_mem_list (Wenum'_dec h))) hargs
   exact (Computable.computablePred hcomp).of_eq fun n => by simp [List.mem_range]
 
+/- The largest of the first n emitted elements. -/
+def Wenum'_initialMax (h : (W e).Infinite) (n : ℕ) : ℕ :=
+  (List.argmax (fun m => Wenum' h m) (List.range (n + 1))).getD 0
+
+-- lemma Wenum'_initialMax_le {e : ℕ} (h : (W e).Infinite) (n : ℕ) :
+--     Wenum'_initialMax h n ≤ n := by
+--   unfold Wenum'_initialMax
+--   cases harg : List.argmax (fun m => Wenum' h m) (List.range (n + 1)) with
+--   | none => exact Nat.le_of_ble_eq_true rfl
+--   | some a => simpa [harg] using
+--       Nat.le_of_lt_succ (List.mem_range.mp (List.argmax_mem (Option.mem_def.mpr harg)))
+
+/- The largest of the first n emitted elements really is the largest -/
+lemma Wenum'_initialMax_ge (h : (W e).Infinite) (n : ℕ) :
+    ∀ m ≤ n, Wenum' h m ≤ Wenum' h (Wenum'_initialMax h n) := by
+  intro m hm
+  unfold Wenum'_initialMax
+  let L := List.range (n + 1)
+  change Wenum' h m ≤ Wenum' h ((List.argmax (fun k => Wenum' h k) L).getD 0)
+  have hmL := List.mem_range.mpr (Nat.lt_succ_of_le hm)
+  cases harg : List.argmax (fun k => Wenum' h k) L with
+  | none =>
+      have hL := (List.argmax_eq_none (f := fun k => Wenum' h k) (l := L)).mp harg
+      contrapose hL
+      exact List.ne_nil_of_mem hmL
+  | some a =>
+      have ha_arg := Option.mem_def.mpr harg
+      have hle := List.le_of_mem_argmax (f := fun k => Wenum' h k) (l := L) hmL ha_arg
+      simpa [harg] using hle
+
+/- TODO: This doesn't need c.e.ness, or Stream properties.
+Rephrase for injective f : ℕ → ℕ? -/
+/- An infinite sequence of naturals always eventually increases. -/
+lemma Wenum'_unbounded (h : (W e).Infinite) : ∀ s, ∃ t > s, Wenum' h s < Wenum' h t := by
+  intro s
+  let l := Wenum'_initialMax h s -- l = the index of the largest Wenum' e t for t ≤ s
+  have ⟨b, ⟨h1b, h2b⟩⟩ := Set.Infinite.exists_gt h (Wenum' h l) -- b = a value in Wenum' e larger than l
+  replace h1b := (((We_mem_TFAE e b).out 0 3).mp h1b)
+  simp_rw [eq_comm] at h1b
+  replace ⟨t', h1b⟩ := (Wenum'_mem b h).mp h1b -- the index of b
+  have ht : t' > s := by
+    contrapose h2b
+    simp_all only [gt_iff_lt, not_lt]
+    apply (Wenum'_initialMax_ge h s) at h2b
+    simp_all [l]
+  refine ⟨t', ⟨ht, ?_⟩⟩
+  have hs : Wenum' h s ≤ Wenum' h l := by
+      apply (Wenum'_initialMax_ge h s)
+      exact Nat.le_refl s
+  omega
+
+/- On input s, finds the least index t > s such that A s < A t -/
+def nextLargerIndex (A : ℕ → ℕ) (hA : ∀ s, ∃ t > s, A s < A t) : ℕ → ℕ
+  | 0 => 0
+  | s + 1 => Nat.find (hA s)
+
+lemma nextLargerIndex_spec (A : ℕ → ℕ) (hA : ∀ s, ∃ t > s, A s < A t) (s : ℕ) :
+    s < nextLargerIndex A hA (s + 1) ∧ A s < A (nextLargerIndex A hA (s + 1)) := by
+  exact Nat.find_spec (hA s)
+
+def Wenum'_LargerIndex (h : (W e).Infinite) :=
+  nextLargerIndex (Wenum' h) (Wenum'_unbounded h)
+
+lemma Wenum'_LargerIndex_comp (h : (W e).Infinite) :
+    Computable (Wenum'_LargerIndex h) := by sorry
+
+def Wenum'_inc_index (h : (W e).Infinite) : ℕ → ℕ
+  | 0 => 0
+  | s + 1 => nextLargerIndex (fun t ↦ Wenum' h t) (Wenum'_unbounded h) ((Wenum'_inc_index h s) + 1)
+
+def Wenum'_inc_subseq (h : (W e).Infinite) (s : ℕ) : ℕ :=
+  Wenum' h (Wenum'_inc_index h s)
+
+lemma Wenum'_inc_index_spec (h : (W e).Infinite) (s : ℕ) :
+    Wenum'_inc_index h s < Wenum'_inc_index h (s + 1) := by
+  dsimp [Wenum'_inc_index]
+  exact (nextLargerIndex_spec
+    (fun t => Wenum' h t)
+    (Wenum'_unbounded h)
+    (Wenum'_inc_index h s)).1
+
+lemma Wenum'_inc_subseq_spec (h : (W e).Infinite) (s : ℕ) :
+    Wenum'_inc_subseq h s < Wenum'_inc_subseq h (s+1) := by
+  dsimp [Wenum'_inc_subseq]
+  exact (nextLargerIndex_spec
+    (fun t => Wenum' h t)
+    (Wenum'_unbounded h)
+    (Wenum'_inc_index h s)).2
+
+/- TODO: Find the index inc(e) so that Wenum inc(e) s = Wenum' e (Wenum'_inc_index s).
+This requires showing that, given (W e).Infinite, Wenum'_inc_subseq_spec is a
+computable (and thus c.e.) function
+-/
+
+
+lemma infinite_sigma01_inc_subseq (e : ℕ) (h : (W e).Infinite) :
+  ∃ f : ℕ → ℕ, Computable f ∧ ∀ m n, m < n → Wenum' h (f m) < Wenum' h (f n) := by
+  have hf := Wenum'_LargerIndex_comp h
+  use Wenum'_LargerIndex h
+  constructor
+  · exact hf
+  · intro m n hmn
+    sorry  -- since range n <+ range m, use List.argmax_cons
 
 -- Views Of Mount Σ01 :
 -- partial recursive f
@@ -267,3 +378,5 @@ lemma inf_inc_sigma01_is_delta01 (h : (W e).Infinite)
 -- the code e for f
 -- the (possibly finite) sequence of nth outputs {fn}
 -- the infinite partial recursive sequence of nth outputs {fn}
+
+#min_imports
